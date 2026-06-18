@@ -3,855 +3,1217 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>ParallelDots — Revenue Dashboard</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
-<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<title>ParallelDots · Revenue Ops Dashboard</title>
 <style>
-/* ── Reset & Base ── */
-*{box-sizing:border-box;margin:0;padding:0}
-:root{
-  --navy:#0F172A;--navy2:#1E293B;--navy3:#334155;
-  --teal:#0F6E56;--teal2:#1D9E75;--teal3:#5DCAA5;--teal4:#E1F5EE;
-  --amber:#BA7517;--amber2:#EF9F27;--amber3:#FAEEDA;
-  --red:#A32D2D;--red2:#FCEBEB;
-  --blue:#185FA5;--blue2:#E6F1FB;
-  --gray1:#F8FAFC;--gray2:#F1F5F9;--gray3:#E2E8F0;--gray4:#CBD5E1;
-  --gray5:#94A3B8;--gray6:#64748B;--gray7:#475569;--gray8:#1E293B;
-  --text:#0F172A;--text2:#475569;--text3:#94A3B8;
-  --white:#FFFFFF;
-  --radius:8px;--radius-lg:12px;--radius-xl:16px;
-  --shadow:0 1px 3px rgba(0,0,0,0.08),0 1px 2px rgba(0,0,0,0.04);
-  --shadow-lg:0 4px 16px rgba(0,0,0,0.1);
-}
-body{font-family:'Inter',sans-serif;background:var(--gray1);color:var(--text);font-size:14px;line-height:1.6}
-/* ── Login Page ── */
-#loginPage{min-height:100vh;display:flex;align-items:center;justify-content:center;background:var(--navy);padding:1.5rem}
-.login-wrap{background:var(--white);border-radius:var(--radius-xl);padding:2.5rem 2rem;width:100%;max-width:380px;box-shadow:var(--shadow-lg)}
-.login-logo{display:flex;align-items:center;gap:10px;margin-bottom:2rem}
-.login-logo-icon{width:42px;height:42px;border-radius:10px;background:var(--teal);display:flex;align-items:center;justify-content:center}
-.login-logo-icon svg{width:22px;height:22px;fill:white}
-.login-logo-text{font-size:17px;font-weight:600;color:var(--navy)}
-.login-logo-sub{font-size:11px;color:var(--gray5);margin-top:1px}
-.login-heading{font-size:20px;font-weight:600;color:var(--navy);margin-bottom:4px}
-.login-sub{font-size:13px;color:var(--gray6);margin-bottom:1.75rem}
-.field-label{font-size:12px;font-weight:500;color:var(--gray7);margin-bottom:5px;display:block}
-.field-input{width:100%;padding:9px 12px;border:1px solid var(--gray3);border-radius:var(--radius);font-size:13px;font-family:'Inter',sans-serif;color:var(--text);background:var(--white);outline:none;transition:border 0.15s;margin-bottom:1rem}
-.field-input:focus{border-color:var(--teal2)}
-.login-btn{width:100%;padding:10px;background:var(--teal);color:white;border:none;border-radius:var(--radius);font-size:14px;font-weight:500;font-family:'Inter',sans-serif;cursor:pointer;transition:background 0.15s;margin-top:0.25rem}
-.login-btn:hover{background:var(--teal2)}
-.login-error{background:var(--red2);color:var(--red);font-size:12px;padding:8px 12px;border-radius:var(--radius);margin-bottom:1rem;display:none}
-.login-hint{font-size:11px;color:var(--gray5);text-align:center;margin-top:1.25rem}
-/* ── App Shell ── */
-#appPage{display:none;min-height:100vh;flex-direction:row}
-.sidebar{width:220px;min-height:100vh;background:var(--navy);display:flex;flex-direction:column;flex-shrink:0;position:fixed;top:0;left:0;bottom:0;z-index:100}
-.sb-logo{padding:1.25rem 1.25rem 1rem;border-bottom:1px solid var(--navy3)}
-.sb-logo-row{display:flex;align-items:center;gap:9px}
-.sb-logo-icon{width:34px;height:34px;border-radius:8px;background:var(--teal);display:flex;align-items:center;justify-content:center;flex-shrink:0}
-.sb-logo-icon svg{width:18px;height:18px;fill:white}
-.sb-logo-name{font-size:14px;font-weight:600;color:white;line-height:1.2}
-.sb-logo-sub{font-size:10px;color:var(--gray5);margin-top:1px}
-.sb-nav{flex:1;padding:1rem 0.75rem;display:flex;flex-direction:column;gap:2px}
-.sb-item{display:flex;align-items:center;gap:9px;padding:8px 10px;border-radius:var(--radius);color:var(--gray5);font-size:13px;cursor:pointer;transition:all 0.15s;user-select:none}
-.sb-item:hover{background:var(--navy2);color:white}
-.sb-item.active{background:var(--teal);color:white}
-.sb-item svg{width:16px;height:16px;flex-shrink:0;opacity:0.8}
-.sb-item.active svg{opacity:1}
-.sb-divider{height:1px;background:var(--navy3);margin:0.5rem 0}
-.sb-section-label{font-size:10px;font-weight:500;color:var(--navy3);text-transform:uppercase;letter-spacing:0.8px;padding:6px 10px 2px}
-.sb-bottom{padding:0.75rem;border-top:1px solid var(--navy3)}
-.sb-user{display:flex;align-items:center;gap:9px;padding:8px 10px;border-radius:var(--radius)}
-.sb-avatar{width:30px;height:30px;border-radius:50%;background:var(--teal);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:600;color:white;flex-shrink:0}
-.sb-user-name{font-size:12px;font-weight:500;color:white;line-height:1.3}
-.sb-user-role{font-size:10px;color:var(--gray5)}
-.sb-logout{font-size:11px;color:var(--gray5);cursor:pointer;padding:2px 10px;margin-top:4px;display:block;transition:color 0.15s}
-.sb-logout:hover{color:white}
-/* ── Main Content ── */
-.main{margin-left:220px;padding:1.75rem 2rem;min-height:100vh}
-.page-header{margin-bottom:1.5rem}
-.page-title{font-size:20px;font-weight:600;color:var(--navy)}
-.page-sub{font-size:13px;color:var(--gray6);margin-top:2px}
-/* ── Sections ── */
-.section{display:none}
-.section.active{display:block}
-/* ── Metric Cards ── */
-.metrics-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:1.5rem}
-.metric{background:white;border:1px solid var(--gray3);border-radius:var(--radius-lg);padding:16px 18px}
-.metric-label{font-size:11px;font-weight:500;color:var(--gray6);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px}
-.metric-value{font-size:24px;font-weight:600;color:var(--navy);line-height:1}
-.metric-change{font-size:11px;margin-top:5px;font-weight:500}
-.up{color:var(--teal)}
-.down{color:var(--red)}
-/* ── Cards ── */
-.card{background:white;border:1px solid var(--gray3);border-radius:var(--radius-lg);padding:20px}
-.card-title{font-size:13px;font-weight:600;color:var(--navy);margin-bottom:2px}
-.card-sub{font-size:11px;color:var(--gray6);margin-bottom:16px}
-.grid-2{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px}
-.grid-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;margin-bottom:14px}
-.chart-wrap{position:relative}
-/* ── Tables ── */
-.tbl-wrap{overflow-x:auto}
-table.data-tbl{width:100%;border-collapse:collapse;font-size:13px}
-table.data-tbl th{text-align:left;font-size:11px;font-weight:600;color:var(--gray6);text-transform:uppercase;letter-spacing:0.5px;padding:8px 12px;border-bottom:1px solid var(--gray3);white-space:nowrap}
-table.data-tbl td{padding:10px 12px;border-bottom:1px solid var(--gray2);color:var(--text);vertical-align:middle}
-table.data-tbl tr:last-child td{border-bottom:none}
-table.data-tbl tr:hover td{background:var(--gray1)}
-/* ── Pills / Badges ── */
-.pill{display:inline-block;font-size:11px;font-weight:500;padding:2px 9px;border-radius:20px}
-.pill-green{background:var(--teal4);color:var(--teal)}
-.pill-amber{background:var(--amber3);color:var(--amber)}
-.pill-red{background:var(--red2);color:var(--red)}
-.pill-blue{background:var(--blue2);color:var(--blue)}
-.pill-gray{background:var(--gray2);color:var(--gray6)}
-/* ── Avatar ── */
-.av{width:32px;height:32px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-size:11px;font-weight:600;flex-shrink:0}
-.av-teal{background:var(--teal4);color:var(--teal)}
-.av-blue{background:var(--blue2);color:var(--blue)}
-.av-amber{background:var(--amber3);color:var(--amber)}
-.av-red{background:var(--red2);color:var(--red)}
-.av-gray{background:var(--gray2);color:var(--gray6)}
-/* ── Filter bar ── */
-.filter-bar{display:flex;gap:8px;margin-bottom:1rem;flex-wrap:wrap;align-items:center}
-.filter-select{font-size:12px;padding:6px 10px;border:1px solid var(--gray3);border-radius:var(--radius);background:white;color:var(--text);font-family:'Inter',sans-serif;outline:none;cursor:pointer}
-.filter-select:focus{border-color:var(--teal2)}
-/* ── Toggle ── */
-.toggle{position:relative;display:inline-block;width:34px;height:19px;flex-shrink:0}
-.toggle input{opacity:0;width:0;height:0}
-.tgl-sl{position:absolute;cursor:pointer;inset:0;background:var(--gray4);border-radius:10px;transition:0.2s}
-.tgl-sl:before{position:absolute;content:"";height:13px;width:13px;left:3px;bottom:3px;background:white;border-radius:50%;transition:0.2s}
-input:checked+.tgl-sl{background:var(--teal2)}
-input:checked+.tgl-sl:before{transform:translateX(15px)}
-input:disabled+.tgl-sl{opacity:0.45;cursor:not-allowed}
-/* ── Access Cards ── */
-.access-card{background:white;border:1px solid var(--gray3);border-radius:var(--radius-lg);padding:16px;margin-bottom:10px}
-.access-card.revoked{border-left:3px solid var(--red);opacity:0.7}
-.access-card.superadmin{border-left:3px solid var(--teal2)}
-.perm-row{display:flex;align-items:center;justify-content:space-between;padding:7px 0;border-bottom:1px solid var(--gray2);font-size:12px}
-.perm-row:last-child{border-bottom:none}
-.perm-row-label{color:var(--gray7)}
-/* ── Info Banner ── */
-.info-banner{background:var(--blue2);border:1px solid #B5D4F4;border-radius:var(--radius);padding:10px 14px;font-size:12px;color:var(--blue);margin-bottom:1rem;display:flex;gap:8px;align-items:flex-start}
-.warn-banner{background:var(--amber3);border:1px solid #FAC775;border-radius:var(--radius);padding:10px 14px;font-size:12px;color:var(--amber);margin-bottom:1rem;display:flex;gap:8px;align-items:flex-start}
-/* ── Monospace ── */
-.mono{font-family:'JetBrains Mono',monospace;font-size:11px;background:var(--gray2);padding:2px 6px;border-radius:4px;color:var(--gray7)}
-/* ── Access level buttons ── */
-.al-row{display:flex;align-items:center;gap:6px;margin-top:10px;padding-top:10px;border-top:1px solid var(--gray2);flex-wrap:wrap}
-.al-label{font-size:11px;color:var(--gray6)}
-.al-btn{font-size:11px;padding:3px 10px;border-radius:20px;border:1px solid var(--gray3);background:white;color:var(--gray6);cursor:pointer;font-family:'Inter',sans-serif;transition:all 0.15s}
-.al-btn:hover{border-color:var(--teal2);color:var(--teal)}
-.al-btn.active{background:var(--teal4);border-color:var(--teal2);color:var(--teal);font-weight:500}
-.revoke-btn{font-size:11px;padding:4px 10px;border-radius:var(--radius);border:1px solid #FECACA;color:var(--red);background:white;cursor:pointer;font-family:'Inter',sans-serif;transition:all 0.15s}
-.revoke-btn:hover{background:var(--red2)}
-.restore-btn{font-size:11px;padding:4px 10px;border-radius:var(--radius);border:1px solid #BBF7D0;color:var(--teal);background:white;cursor:pointer;font-family:'Inter',sans-serif;transition:all 0.15s}
-.restore-btn:hover{background:var(--teal4)}
-/* ── Toast ── */
-#toast{position:fixed;bottom:24px;right:24px;background:var(--navy);color:white;padding:10px 16px;border-radius:var(--radius);font-size:13px;opacity:0;transform:translateY(8px);transition:all 0.25s;z-index:9999;pointer-events:none;max-width:300px}
-#toast.show{opacity:1;transform:translateY(0)}
-/* ── Legend ── */
-.legend{display:flex;flex-wrap:wrap;gap:12px;margin-bottom:10px}
-.leg-item{display:flex;align-items:center;gap:5px;font-size:11px;color:var(--gray6)}
-.leg-sq{width:10px;height:10px;border-radius:2px;flex-shrink:0}
-/* ── Blocked page ── */
-.blocked-wrap{min-height:60vh;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:2rem}
-.blocked-icon{width:56px;height:56px;border-radius:50%;background:var(--red2);display:flex;align-items:center;justify-content:center;margin:0 auto 1rem}
-.blocked-icon svg{width:26px;height:26px;fill:var(--red)}
-/* ── Responsive ── */
-@media(max-width:768px){
-  .sidebar{width:200px}
-  .main{margin-left:200px;padding:1.25rem}
-  .grid-2,.grid-3{grid-template-columns:1fr}
-}
-@media(max-width:600px){
-  .sidebar{transform:translateX(-100%)}
-  .main{margin-left:0;padding:1rem}
-  .metrics-row{grid-template-columns:1fr 1fr}
-}
+  :root {
+    --bg: #0d0f14;
+    --surface: #151820;
+    --surface2: #1c2030;
+    --surface3: #242840;
+    --border: #2a2f45;
+    --accent: #4f8ef7;
+    --accent2: #7c3aed;
+    --accent-glow: rgba(79,142,247,0.15);
+    --green: #22c55e;
+    --yellow: #f59e0b;
+    --red: #ef4444;
+    --text: #e2e8f0;
+    --text2: #8892a4;
+    --text3: #4a5568;
+    --sidebar-w: 240px;
+    --header-h: 56px;
+    --tab-h: 44px;
+    --font: 'Inter', system-ui, sans-serif;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: var(--font); height: 100vh; overflow: hidden; display: flex; flex-direction: column; }
+
+  /* ── TOP HEADER ── */
+  #topbar {
+    height: var(--header-h);
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 0 20px; flex-shrink: 0; z-index: 100;
+  }
+  .logo { display: flex; align-items: center; gap: 10px; }
+  .logo-dot { width: 28px; height: 28px; background: linear-gradient(135deg,#4f8ef7,#7c3aed); border-radius: 7px; display: grid; place-items: center; font-size: 14px; font-weight: 800; color: #fff; }
+  .logo-name { font-size: 15px; font-weight: 700; letter-spacing: -0.3px; }
+  .logo-sub { font-size: 11px; color: var(--text2); margin-top: 1px; }
+  .topbar-right { display: flex; align-items: center; gap: 12px; }
+
+  /* Company switcher */
+  .company-btns { display: flex; gap: 6px; }
+  .co-btn {
+    padding: 5px 14px; border-radius: 20px; font-size: 12px; font-weight: 600; cursor: pointer;
+    border: 1px solid var(--border); background: transparent; color: var(--text2);
+    transition: all .2s;
+  }
+  .co-btn.active { background: var(--accent); border-color: var(--accent); color: #fff; box-shadow: 0 0 14px rgba(79,142,247,.4); }
+  .co-btn:hover:not(.active) { border-color: var(--accent); color: var(--accent); }
+
+  .divider-v { width: 1px; height: 24px; background: var(--border); }
+
+  .user-pill {
+    display: flex; align-items: center; gap: 8px; cursor: pointer;
+    padding: 4px 10px 4px 6px; border-radius: 20px; border: 1px solid var(--border);
+    background: var(--surface2); font-size: 12px; transition: border-color .2s;
+  }
+  .user-pill:hover { border-color: var(--accent); }
+  .avatar { width: 26px; height: 26px; border-radius: 50%; background: linear-gradient(135deg,#4f8ef7,#7c3aed); display: grid; place-items: center; font-size: 11px; font-weight: 700; color: #fff; flex-shrink: 0; }
+  .user-name { font-weight: 600; }
+  .badge-admin { background: var(--accent2); color: #fff; font-size: 9px; padding: 2px 6px; border-radius: 10px; font-weight: 700; }
+
+  /* ── MAIN LAYOUT ── */
+  #main { display: flex; flex: 1; overflow: hidden; }
+
+  /* ── SIDEBAR ── */
+  #sidebar {
+    width: var(--sidebar-w); background: var(--surface); border-right: 1px solid var(--border);
+    display: flex; flex-direction: column; flex-shrink: 0; overflow-y: auto;
+  }
+  .sidebar-section { padding: 14px 12px 6px; }
+  .sidebar-label { font-size: 10px; font-weight: 700; color: var(--text3); letter-spacing: 1px; text-transform: uppercase; margin-bottom: 6px; padding: 0 6px; }
+  .sheet-item {
+    display: flex; align-items: center; gap: 9px; padding: 8px 10px; border-radius: 8px;
+    cursor: pointer; font-size: 13px; font-weight: 500; color: var(--text2);
+    transition: all .15s; position: relative;
+  }
+  .sheet-item:hover { background: var(--surface2); color: var(--text); }
+  .sheet-item.active { background: var(--accent-glow); color: var(--accent); }
+  .sheet-item.active::before { content:''; position: absolute; left: 0; top: 20%; height: 60%; width: 3px; border-radius: 2px; background: var(--accent); }
+  .sheet-icon { font-size: 14px; flex-shrink: 0; }
+  .sheet-count { margin-left: auto; background: var(--surface3); color: var(--text2); font-size: 10px; padding: 2px 7px; border-radius: 10px; }
+
+  .sidebar-bottom { margin-top: auto; padding: 12px; border-top: 1px solid var(--border); }
+  .sidebar-action {
+    display: flex; align-items: center; gap: 8px; padding: 8px 10px; border-radius: 8px;
+    cursor: pointer; font-size: 12px; color: var(--text2); transition: all .15s;
+  }
+  .sidebar-action:hover { background: var(--surface2); color: var(--text); }
+
+  /* ── CONTENT AREA ── */
+  #content { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+
+  /* ── CONTENT HEADER ── */
+  #content-header {
+    padding: 14px 20px 0; background: var(--bg); flex-shrink: 0;
+    display: flex; flex-direction: column; gap: 10px;
+  }
+  .sheet-title-row { display: flex; align-items: center; justify-content: space-between; }
+  .sheet-title { font-size: 18px; font-weight: 700; letter-spacing: -0.4px; }
+  .header-actions { display: flex; gap: 8px; align-items: center; }
+
+  /* Column selector */
+  .col-select-btn {
+    display: flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: 8px;
+    background: var(--surface2); border: 1px solid var(--border); color: var(--text2);
+    font-size: 12px; cursor: pointer; transition: all .2s;
+  }
+  .col-select-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+  /* Filter bar */
+  .filter-bar { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  .filter-chip {
+    display: flex; align-items: center; gap: 5px; padding: 5px 10px; border-radius: 6px;
+    background: var(--surface2); border: 1px solid var(--border); font-size: 12px; color: var(--text2);
+    cursor: pointer; transition: all .15s;
+  }
+  .filter-chip:hover { border-color: var(--accent); color: var(--accent); }
+  .filter-chip.active { background: var(--accent-glow); border-color: var(--accent); color: var(--accent); }
+  .search-box {
+    display: flex; align-items: center; gap: 6px; padding: 5px 10px; border-radius: 6px;
+    background: var(--surface2); border: 1px solid var(--border); font-size: 12px;
+  }
+  .search-box input {
+    background: transparent; border: none; outline: none; color: var(--text); font-size: 12px;
+    width: 160px; font-family: var(--font);
+  }
+  .search-box input::placeholder { color: var(--text3); }
+
+  /* ── TABS ── */
+  #tab-bar {
+    display: flex; align-items: center; gap: 2px; padding: 0 20px;
+    border-bottom: 1px solid var(--border); flex-shrink: 0; background: var(--bg);
+    overflow-x: auto; scrollbar-width: none;
+  }
+  #tab-bar::-webkit-scrollbar { display: none; }
+  .tab {
+    padding: 10px 16px; font-size: 12px; font-weight: 600; color: var(--text2);
+    cursor: pointer; border-bottom: 2px solid transparent; white-space: nowrap;
+    transition: all .15s; border-radius: 6px 6px 0 0; margin-bottom: -1px;
+  }
+  .tab:hover { color: var(--text); background: var(--surface2); }
+  .tab.active { color: var(--accent); border-bottom-color: var(--accent); background: var(--accent-glow); }
+  .tab-add { font-size: 16px; color: var(--text3); padding: 8px 10px; cursor: pointer; }
+  .tab-add:hover { color: var(--accent); }
+
+  /* ── DATA AREA ── */
+  #data-area { flex: 1; overflow-y: auto; padding: 16px 20px; }
+  #data-area::-webkit-scrollbar { width: 6px; }
+  #data-area::-webkit-scrollbar-track { background: transparent; }
+  #data-area::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+
+  /* ── OVERVIEW CARDS ── */
+  .overview-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px,1fr)); gap: 12px; margin-bottom: 20px; }
+  .kpi-card {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
+    padding: 16px; transition: border-color .2s, box-shadow .2s;
+  }
+  .kpi-card:hover { border-color: var(--accent); box-shadow: 0 0 20px var(--accent-glow); }
+  .kpi-label { font-size: 11px; color: var(--text2); font-weight: 600; text-transform: uppercase; letter-spacing: .5px; }
+  .kpi-value { font-size: 26px; font-weight: 800; letter-spacing: -1px; margin: 8px 0 4px; }
+  .kpi-change { font-size: 12px; display: flex; align-items: center; gap: 4px; }
+  .up { color: var(--green); }
+  .down { color: var(--red); }
+  .kpi-bar { height: 3px; background: var(--surface3); border-radius: 2px; margin-top: 10px; overflow: hidden; }
+  .kpi-bar-fill { height: 100%; border-radius: 2px; background: linear-gradient(90deg,#4f8ef7,#7c3aed); }
+
+  /* ── DATA TABLE ── */
+  .table-wrap { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  thead { background: var(--surface2); }
+  th {
+    padding: 11px 14px; text-align: left; font-size: 11px; font-weight: 700; color: var(--text2);
+    text-transform: uppercase; letter-spacing: .5px; cursor: pointer; white-space: nowrap;
+    border-bottom: 1px solid var(--border); user-select: none;
+  }
+  th:hover { color: var(--accent); }
+  th .sort-icon { margin-left: 4px; opacity: .4; }
+  td { padding: 10px 14px; border-bottom: 1px solid var(--border); color: var(--text); }
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: var(--surface2); }
+  .status-pill {
+    display: inline-flex; align-items: center; gap: 5px; padding: 3px 9px; border-radius: 12px;
+    font-size: 11px; font-weight: 600;
+  }
+  .status-pill.active { background: rgba(34,197,94,.15); color: var(--green); }
+  .status-pill.pending { background: rgba(245,158,11,.15); color: var(--yellow); }
+  .status-pill.closed { background: rgba(239,68,68,.15); color: var(--red); }
+  .status-dot { width: 5px; height: 5px; border-radius: 50%; background: currentColor; }
+  .amt { font-weight: 700; font-variant-numeric: tabular-nums; }
+  .pagination { display: flex; align-items: center; justify-content: space-between; padding: 12px 14px; border-top: 1px solid var(--border); font-size: 12px; color: var(--text2); }
+  .page-btns { display: flex; gap: 4px; }
+  .page-btn { padding: 4px 10px; border-radius: 6px; background: var(--surface2); border: 1px solid var(--border); color: var(--text2); cursor: pointer; font-size: 12px; }
+  .page-btn:hover, .page-btn.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+
+  /* ── MODALS ── */
+  .overlay {
+    position: fixed; inset: 0; background: rgba(0,0,0,.7); backdrop-filter: blur(4px);
+    display: none; z-index: 1000; align-items: center; justify-content: center;
+  }
+  .overlay.open { display: flex; }
+  .modal {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 16px;
+    padding: 28px; width: 460px; max-width: 95vw; max-height: 90vh; overflow-y: auto;
+  }
+  .modal-title { font-size: 18px; font-weight: 700; margin-bottom: 20px; display: flex; align-items: center; gap: 10px; }
+  .modal-title .icon { font-size: 20px; }
+  .form-group { margin-bottom: 16px; }
+  label { display: block; font-size: 12px; font-weight: 600; color: var(--text2); margin-bottom: 6px; }
+  input[type=text], input[type=password], select {
+    width: 100%; padding: 9px 12px; background: var(--surface2); border: 1px solid var(--border);
+    border-radius: 8px; color: var(--text); font-size: 13px; outline: none; font-family: var(--font);
+    transition: border-color .2s;
+  }
+  input[type=text]:focus, input[type=password]:focus, select:focus { border-color: var(--accent); }
+  .btn-row { display: flex; gap: 8px; margin-top: 20px; justify-content: flex-end; }
+  .btn {
+    padding: 8px 18px; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer;
+    border: none; font-family: var(--font); transition: all .2s;
+  }
+  .btn-primary { background: var(--accent); color: #fff; }
+  .btn-primary:hover { background: #3a7de8; }
+  .btn-ghost { background: var(--surface2); color: var(--text2); border: 1px solid var(--border); }
+  .btn-ghost:hover { border-color: var(--accent); color: var(--accent); }
+  .btn-danger { background: var(--red); color: #fff; }
+  .error-msg { font-size: 12px; color: var(--red); margin-top: 8px; min-height: 16px; }
+
+  /* Column picker */
+  .col-picker { display: flex; flex-wrap: wrap; gap: 8px; }
+  .col-check {
+    display: flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: 8px;
+    background: var(--surface2); border: 1px solid var(--border); cursor: pointer;
+    font-size: 12px; font-weight: 500; transition: all .15s;
+  }
+  .col-check.selected { border-color: var(--accent); color: var(--accent); background: var(--accent-glow); }
+  .col-check input { display: none; }
+
+  /* Team list */
+  .team-list { display: flex; flex-direction: column; gap: 8px; margin-bottom: 12px; }
+  .team-row {
+    display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 10px;
+    background: var(--surface2); border: 1px solid var(--border);
+  }
+  .team-info { flex: 1; }
+  .team-name { font-size: 13px; font-weight: 600; }
+  .team-role { font-size: 11px; color: var(--text2); }
+  .team-access { display: flex; flex-wrap: wrap; gap: 4px; }
+  .access-tag { font-size: 10px; padding: 2px 7px; border-radius: 10px; background: var(--accent-glow); color: var(--accent); font-weight: 600; }
+  .btn-xs { padding: 4px 10px; font-size: 11px; }
+  .section-title { font-size: 14px; font-weight: 700; margin-bottom: 12px; padding-bottom: 8px; border-bottom: 1px solid var(--border); }
+
+  /* Link sheet modal */
+  .link-info { padding: 12px; background: var(--surface2); border-radius: 8px; font-size: 12px; color: var(--text2); line-height: 1.6; margin-bottom: 12px; }
+  .link-info code { background: var(--surface3); padding: 2px 6px; border-radius: 4px; color: var(--accent); font-size: 11px; }
+
+  /* Toast */
+  #toast {
+    position: fixed; bottom: 24px; right: 24px; background: var(--surface); border: 1px solid var(--border);
+    border-radius: 10px; padding: 12px 16px; font-size: 13px; color: var(--text);
+    z-index: 9999; transform: translateY(80px); opacity: 0; transition: all .3s;
+    display: flex; align-items: center; gap: 8px; max-width: 320px;
+  }
+  #toast.show { transform: translateY(0); opacity: 1; }
+  #toast.success { border-left: 3px solid var(--green); }
+  #toast.error { border-left: 3px solid var(--red); }
+
+  /* ── LOGIN SCREEN ── */
+  #login-screen {
+    position: fixed; inset: 0; background: var(--bg); z-index: 2000;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .login-box {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 20px;
+    padding: 40px 36px; width: 380px; text-align: center;
+  }
+  .login-logo { width: 52px; height: 52px; background: linear-gradient(135deg,#4f8ef7,#7c3aed); border-radius: 14px; display: grid; place-items: center; font-size: 22px; font-weight: 900; color: #fff; margin: 0 auto 16px; }
+  .login-title { font-size: 20px; font-weight: 800; margin-bottom: 4px; }
+  .login-sub { font-size: 13px; color: var(--text2); margin-bottom: 28px; }
+  .login-box .form-group { text-align: left; }
+  .login-hint { font-size: 11px; color: var(--text3); margin-top: 6px; }
+
+  /* Empty state */
+  .empty-state { text-align: center; padding: 60px 20px; color: var(--text2); }
+  .empty-state .icon { font-size: 40px; margin-bottom: 12px; }
+  .empty-state h3 { font-size: 16px; font-weight: 700; color: var(--text); margin-bottom: 6px; }
+  .empty-state p { font-size: 13px; }
+
+  /* Sidebar toggle */
+  #sidebar-toggle { display: none; }
+
+  @media(max-width:700px) {
+    :root { --sidebar-w: 200px; }
+    .overview-grid { grid-template-columns: 1fr 1fr; }
+    #sidebar-toggle { display: flex; }
+    #sidebar { position: absolute; left: -240px; top: var(--header-h); bottom: 0; z-index: 500; transition: left .25s; }
+    #sidebar.open { left: 0; }
+  }
 </style>
 </head>
 <body>
 
-<!-- ══════════════ LOGIN PAGE ══════════════ -->
-<div id="loginPage">
-  <div class="login-wrap">
-    <div class="login-logo">
-      <div class="login-logo-icon">
-        <svg viewBox="0 0 24 24"><path d="M3 3h7v7H3V3zm11 0h7v7h-7V3zM3 14h7v7H3v-7zm11 3a4 4 0 100-8 4 4 0 000 8z"/></svg>
-      </div>
-      <div>
-        <div class="login-logo-text">ParallelDots</div>
-        <div class="login-logo-sub">Revenue Operations</div>
-      </div>
+<!-- ════ LOGIN SCREEN ════ -->
+<div id="login-screen">
+  <div class="login-box">
+    <div class="login-logo">P</div>
+    <div class="login-title">ParallelDots</div>
+    <div class="login-sub">Revenue Ops Dashboard — Sign In</div>
+    <div class="form-group">
+      <label>Email</label>
+      <input type="text" id="login-email" placeholder="admin@paralleldots.com">
     </div>
-    <div class="login-heading">Sign in</div>
-    <div class="login-sub">Enter your Employee ID and password to continue</div>
-    <div id="loginError" class="login-error">Invalid Employee ID or password. Please try again.</div>
-    <label class="field-label" for="empInput">Employee ID</label>
-    <input class="field-input" type="text" id="empInput" placeholder="e.g. PD0012" autocomplete="off">
-    <label class="field-label" for="passInput">Password</label>
-    <input class="field-input" type="password" id="passInput" placeholder="Enter your password">
-    <button class="login-btn" onclick="doLogin()">Sign in</button>
-    <div class="login-hint">Password = Your Employee ID &nbsp;·&nbsp; Contact admin to reset</div>
+    <div class="form-group">
+      <label>Password</label>
+      <input type="password" id="login-pass" placeholder="••••••••">
+    </div>
+    <div class="error-msg" id="login-err"></div>
+    <button class="btn btn-primary" style="width:100%;margin-top:4px" onclick="doLogin()">Sign In</button>
+    <div class="login-hint" style="margin-top:14px">Default: admin@paralleldots.com / admin123</div>
   </div>
 </div>
 
-<!-- ══════════════ APP PAGE ══════════════ -->
-<div id="appPage" style="display:none;display:flex">
-
-  <!-- Sidebar -->
-  <aside class="sidebar">
-    <div class="sb-logo">
-      <div class="sb-logo-row">
-        <div class="sb-logo-icon">
-          <svg viewBox="0 0 24 24"><path d="M3 3h7v7H3V3zm11 0h7v7h-7V3zM3 14h7v7H3v-7zm11 3a4 4 0 100-8 4 4 0 000 8z"/></svg>
-        </div>
-        <div>
-          <div class="sb-logo-name">ParallelDots</div>
-          <div class="sb-logo-sub">Revenue Ops Dashboard</div>
-        </div>
-      </div>
+<!-- ════ TOP BAR ════ -->
+<div id="topbar">
+  <div class="logo">
+    <button class="col-select-btn" id="sidebar-toggle" onclick="toggleSidebar()" style="padding:5px 8px">☰</button>
+    <div class="logo-dot">P</div>
+    <div>
+      <div class="logo-name">ParallelDots</div>
+      <div class="logo-sub">Revenue Ops Dashboard</div>
     </div>
-
-    <nav class="sb-nav" id="sidebarNav">
-      <!-- Dynamically filled based on role -->
-    </nav>
-
-    <div class="sb-bottom">
-      <div class="sb-user">
-        <div class="sb-avatar" id="sbAvatar">PC</div>
-        <div>
-          <div class="sb-user-name" id="sbName">P C Sharma</div>
-          <div class="sb-user-role" id="sbRole">Super Admin</div>
-        </div>
-      </div>
-      <span class="sb-logout" onclick="doLogout()">&#8594; Sign out</span>
+  </div>
+  <div class="topbar-right">
+    <div class="company-btns">
+      <button class="co-btn active" onclick="switchCompany('Company 1',this)">Company 1</button>
+      <button class="co-btn" onclick="switchCompany('Vertical 2',this)">Vertical 2</button>
     </div>
-  </aside>
-
-  <!-- Main -->
-  <main class="main" id="mainContent">
-
-    <!-- ── OVERVIEW ── -->
-    <div id="sec-overview" class="section">
-      <div class="page-header">
-        <div class="page-title">Revenue overview</div>
-        <div class="page-sub">ParallelDots · ShelfWatch · Jan 2024 – Jun 2026</div>
-      </div>
-      <div class="metrics-row">
-        <div class="metric">
-          <div class="metric-label">Earned revenue (Jun 26)</div>
-          <div class="metric-value">$440K</div>
-          <div class="metric-change up">↑ 26% vs Jun 25</div>
-        </div>
-        <div class="metric">
-          <div class="metric-label">Invoiced (Jun 26)</div>
-          <div class="metric-value">$554K</div>
-          <div class="metric-change up">↑ 49% vs Jun 25</div>
-        </div>
-        <div class="metric">
-          <div class="metric-label">Collected (Jun 26)</div>
-          <div class="metric-value">$130K</div>
-          <div class="metric-change down">↓ 57% vs Jun 25</div>
-        </div>
-        <div class="metric">
-          <div class="metric-label">YTD 2026 earned</div>
-          <div class="metric-value">$2.3M</div>
-          <div class="metric-change up">↑ 18% vs 2025</div>
-        </div>
-        <div class="metric">
-          <div class="metric-label">Active projects</div>
-          <div class="metric-value">280+</div>
-          <div class="metric-change" style="color:var(--gray5)">60+ countries</div>
-        </div>
-        <div class="metric">
-          <div class="metric-label">CS team size</div>
-          <div class="metric-value">8</div>
-          <div class="metric-change" style="color:var(--gray5)">Active members</div>
-        </div>
-      </div>
-      <div class="card" style="margin-bottom:14px">
-        <div class="card-title">Monthly earned vs invoiced vs collected (USD)</div>
-        <div class="card-sub">Jan 2024 — Jun 2026 · All values in USD</div>
-        <div class="legend">
-          <span class="leg-item"><span class="leg-sq" style="background:#0F6E56"></span>Earned revenue</span>
-          <span class="leg-item"><span class="leg-sq" style="background:#185FA5"></span>Invoiced</span>
-          <span class="leg-item"><span class="leg-sq" style="background:#BA7517;opacity:0.7"></span>Collected</span>
-        </div>
-        <div class="chart-wrap" style="height:260px"><canvas id="mainRevChart"></canvas></div>
-      </div>
-      <div class="grid-2">
-        <div class="card">
-          <div class="card-title">Revenue by type</div>
-          <div class="card-sub">Subscription vs one-time mix</div>
-          <div class="legend">
-            <span class="leg-item"><span class="leg-sq" style="background:#0F6E56"></span>Sub: fixed</span>
-            <span class="leg-item"><span class="leg-sq" style="background:#5DCAA5"></span>Sub: usage</span>
-            <span class="leg-item"><span class="leg-sq" style="background:#185FA5"></span>One-time: pilot</span>
-            <span class="leg-item"><span class="leg-sq" style="background:#85B7EB"></span>One-time: service</span>
-            <span class="leg-item"><span class="leg-sq" style="background:#EF9F27"></span>Other</span>
-          </div>
-          <div class="chart-wrap" style="height:200px"><canvas id="typeChart"></canvas></div>
-        </div>
-        <div class="card">
-          <div class="card-title">Top clients by revenue</div>
-          <div class="card-sub">Estimated total earned (USD thousands)</div>
-          <div class="chart-wrap" style="height:220px"><canvas id="clientChart"></canvas></div>
-        </div>
-      </div>
+    <div class="divider-v"></div>
+    <div class="user-pill" onclick="openModal('team-modal')">
+      <div class="avatar" id="user-avatar">A</div>
+      <span class="user-name" id="user-display">Admin</span>
+      <span class="badge-admin" id="user-badge">SUPER</span>
     </div>
-
-    <!-- ── TEAM PERFORMANCE ── -->
-    <div id="sec-team" class="section">
-      <div class="page-header">
-        <div class="page-title">Team performance</div>
-        <div class="page-sub">CS members · Revenue earned by member</div>
-      </div>
-      <div class="card" style="margin-bottom:14px">
-        <div class="card-title">Per member revenue — 2025 vs 2026 YTD</div>
-        <div class="card-sub">USD thousands</div>
-        <div class="legend">
-          <span class="leg-item"><span class="leg-sq" style="background:#0F6E56"></span>2025 total</span>
-          <span class="leg-item"><span class="leg-sq" style="background:#185FA5"></span>2026 YTD</span>
-        </div>
-        <div class="chart-wrap" style="height:280px"><canvas id="teamChart"></canvas></div>
-      </div>
-      <div class="card">
-        <div class="card-title">Member details</div>
-        <div class="card-sub">Active CS team · Projects and revenue summary</div>
-        <div class="tbl-wrap">
-          <table class="data-tbl">
-            <thead><tr>
-              <th>Member</th><th>Employee ID</th><th>Key clients</th>
-              <th>2025 revenue</th><th>2026 YTD</th><th>Status</th>
-            </tr></thead>
-            <tbody id="teamTableBody"></tbody>
-          </table>
-        </div>
-      </div>
-    </div>
-
-    <!-- ── PROJECTS ── -->
-    <div id="sec-projects" class="section">
-      <div class="page-header">
-        <div class="page-title">Project list</div>
-        <div class="page-sub">All active and completed projects · ShelfWatch &amp; MenuWatch</div>
-      </div>
-      <div class="filter-bar">
-        <select class="filter-select" id="projTypeFilter" onchange="renderProjects()">
-          <option value="all">All types</option>
-          <option value="Roll-out">Roll-out</option>
-          <option value="Pilot">Pilot</option>
-          <option value="POC">POC</option>
-        </select>
-        <select class="filter-select" id="projSalesFilter" onchange="renderProjects()">
-          <option value="all">All sales leads</option>
-          <option value="Akshay Jain">Akshay Jain</option>
-          <option value="Angam Parashar">Angam Parashar</option>
-          <option value="Ankit Singh">Ankit Singh</option>
-          <option value="Maks Mukundan">Maks Mukundan</option>
-          <option value="Bala Vishwanathan">Bala Vishwanathan</option>
-        </select>
-        <span id="projCountLabel" style="font-size:12px;color:var(--gray5)"></span>
-      </div>
-      <div class="card">
-        <div class="tbl-wrap">
-          <table class="data-tbl">
-            <thead><tr>
-              <th>Project code</th><th>Project name</th><th>Type</th>
-              <th>Country</th><th>Product</th><th>Sales lead</th>
-            </tr></thead>
-            <tbody id="projTableBody"></tbody>
-          </table>
-        </div>
-      </div>
-    </div>
-
-    <!-- ── INVOICE TRACKER ── -->
-    <div id="sec-invoices" class="section">
-      <div class="page-header">
-        <div class="page-title">Invoice tracker</div>
-        <div class="page-sub">Collections status · Kartik Begari portfolio (sample data)</div>
-      </div>
-      <div class="metrics-row" style="grid-template-columns:repeat(4,1fr)">
-        <div class="metric">
-          <div class="metric-label">Total invoiced</div>
-          <div class="metric-value" style="font-size:20px">$41.7K</div>
-        </div>
-        <div class="metric">
-          <div class="metric-label">Collected</div>
-          <div class="metric-value" style="font-size:20px;color:var(--teal)">$29.7K</div>
-        </div>
-        <div class="metric">
-          <div class="metric-label">Pending</div>
-          <div class="metric-value" style="font-size:20px;color:var(--amber)">$11.6K</div>
-        </div>
-        <div class="metric">
-          <div class="metric-label">Collection rate</div>
-          <div class="metric-value" style="font-size:20px">71%</div>
-        </div>
-      </div>
-      <div class="filter-bar">
-        <select class="filter-select" id="invMemberFilter" onchange="renderInvoices()">
-          <option>Kartik Begari</option>
-          <option>Akshay Jain</option>
-          <option>Ayush Srivastava</option>
-          <option>Akshay Bharti</option>
-          <option>Yuvraj Anand</option>
-          <option>Kartik Singh</option>
-          <option>Shantanu Singh</option>
-        </select>
-        <select class="filter-select" id="invStatusFilter" onchange="renderInvoices()">
-          <option value="all">All statuses</option>
-          <option value="Collected">Collected</option>
-          <option value="Pending">Pending</option>
-        </select>
-      </div>
-      <div class="card">
-        <div class="tbl-wrap">
-          <table class="data-tbl">
-            <thead><tr>
-              <th>Invoice #</th><th>Account</th><th>Country</th>
-              <th>Service period</th><th>Amount (USD)</th><th>Due date</th><th>Status</th>
-            </tr></thead>
-            <tbody id="invTableBody"></tbody>
-          </table>
-        </div>
-      </div>
-    </div>
-
-    <!-- ── ACCESS CONTROL ── -->
-    <div id="sec-access" class="section">
-      <div class="page-header">
-        <div class="page-title">Access control</div>
-        <div class="page-sub">Manage member access · Password = Employee ID</div>
-      </div>
-      <div class="info-banner">
-        <svg width="14" height="14" fill="currentColor" viewBox="0 0 20 20" style="flex-shrink:0;margin-top:1px"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"/></svg>
-        Only Super Admins (PD0012 and PD0001) can see this tab. Finance/CA members get View Only by default — upgrade anytime using the access level buttons below.
-      </div>
-      <div id="accessCards"></div>
-    </div>
-
-    <!-- ── BLOCKED ── -->
-    <div id="sec-blocked" class="section">
-      <div class="blocked-wrap">
-        <div class="blocked-icon">
-          <svg viewBox="0 0 24 24"><path d="M12 1C8.676 1 6 3.676 6 7v2H4v14h16V9h-2V7c0-3.324-2.676-6-6-6zm0 2c2.276 0 4 1.724 4 4v2H8V7c0-2.276 1.724-4 4-4zm0 10a2 2 0 110 4 2 2 0 010-4z"/></svg>
-        </div>
-        <div style="font-size:18px;font-weight:600;color:var(--navy);margin-bottom:8px">Access revoked</div>
-        <div style="font-size:13px;color:var(--gray6);max-width:320px">Your account access has been revoked. Please contact your administrator (PD0012) to restore access.</div>
-      </div>
-    </div>
-
-  </main>
+    <button class="col-select-btn" onclick="openModal('admin-modal')">⚙ Admin</button>
+  </div>
 </div>
 
-<div id="toast"></div>
+<!-- ════ MAIN ════ -->
+<div id="main">
+  <!-- SIDEBAR -->
+  <div id="sidebar">
+    <div class="sidebar-section">
+      <div class="sidebar-label">Navigation</div>
+      <div class="sheet-item active" onclick="selectSheet('overview')" id="nav-overview">
+        <span class="sheet-icon">📊</span> Overview
+      </div>
+    </div>
+    <div class="sidebar-section">
+      <div class="sidebar-label">Linked Sheets</div>
+      <div id="sheet-nav-list"></div>
+    </div>
+    <div class="sidebar-bottom">
+      <div class="sidebar-action" onclick="openModal('link-modal')">
+        <span>➕</span> Link Google Sheet
+      </div>
+      <div class="sidebar-action" onclick="openModal('team-modal')">
+        <span>👥</span> Manage Team
+      </div>
+    </div>
+  </div>
+
+  <!-- CONTENT -->
+  <div id="content">
+    <div id="content-header">
+      <div class="sheet-title-row">
+        <div class="sheet-title" id="page-title">Overview</div>
+        <div class="header-actions">
+          <button class="col-select-btn" onclick="openModal('col-modal')">⊞ Columns</button>
+          <button class="col-select-btn" onclick="exportCSV()">⬇ Export</button>
+          <button class="col-select-btn" onclick="refreshData()">↻ Refresh</button>
+        </div>
+      </div>
+      <div class="filter-bar" id="filter-bar">
+        <div class="search-box">
+          <span>🔍</span>
+          <input type="text" id="search-input" placeholder="Search data..." oninput="applyFilters()">
+        </div>
+        <div class="filter-chip" id="filter-status-all" onclick="setFilter('status','all',this)">All Status</div>
+        <div class="filter-chip" onclick="setFilter('status','Active',this)">● Active</div>
+        <div class="filter-chip" onclick="setFilter('status','Pending',this)">◑ Pending</div>
+        <div class="filter-chip" onclick="setFilter('status','Closed',this)">○ Closed</div>
+        <div class="filter-chip" id="filter-co" onclick="toggleCompanyFilter(this)" style="display:none">🏢 Company Filter</div>
+      </div>
+    </div>
+    <!-- TABS (bottom of header, above data) -->
+    <div id="tab-bar">
+      <div class="tab active" id="tab-overview" onclick="selectTab('overview',this)">📊 Overview</div>
+    </div>
+    <div id="data-area">
+      <div id="page-overview"></div>
+      <div id="page-sheet" style="display:none"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ════ MODALS ════ -->
+
+<!-- Link Sheet Modal -->
+<div class="overlay" id="link-modal">
+  <div class="modal">
+    <div class="modal-title"><span class="icon">🔗</span> Link Google Sheet</div>
+    <div class="link-info">
+      Steps to link your Google Sheet:<br>
+      1. Open your Google Sheet<br>
+      2. Go to <code>File → Share → Publish to web</code><br>
+      3. Select the sheet and choose <code>CSV format</code><br>
+      4. Copy the published URL and paste below<br><br>
+      <strong>URL format:</strong><br>
+      <code>https://docs.google.com/spreadsheets/d/SHEET_ID/pub?gid=0&single=true&output=csv</code>
+    </div>
+    <div class="form-group">
+      <label>Sheet Name (Display Name)</label>
+      <input type="text" id="new-sheet-name" placeholder="e.g. Sales Pipeline">
+    </div>
+    <div class="form-group">
+      <label>Published CSV URL</label>
+      <input type="text" id="new-sheet-url" placeholder="https://docs.google.com/...">
+    </div>
+    <div class="form-group">
+      <label>Sheet Icon (emoji)</label>
+      <input type="text" id="new-sheet-icon" placeholder="📈" value="📋" style="max-width:80px">
+    </div>
+    <div class="error-msg" id="link-err"></div>
+    <div class="btn-row">
+      <button class="btn btn-ghost" onclick="closeModal('link-modal')">Cancel</button>
+      <button class="btn btn-primary" onclick="linkSheet()">Link Sheet</button>
+    </div>
+  </div>
+</div>
+
+<!-- Column Picker Modal -->
+<div class="overlay" id="col-modal">
+  <div class="modal">
+    <div class="modal-title"><span class="icon">⊞</span> Choose Visible Columns</div>
+    <div id="col-picker-list" class="col-picker"></div>
+    <div class="btn-row">
+      <button class="btn btn-ghost" onclick="closeModal('col-modal')">Close</button>
+      <button class="btn btn-primary" onclick="applyColumns()">Apply</button>
+    </div>
+  </div>
+</div>
+
+<!-- Admin Modal -->
+<div class="overlay" id="admin-modal">
+  <div class="modal" style="width:520px">
+    <div class="modal-title"><span class="icon">🔐</span> Super Admin Settings</div>
+
+    <div class="section-title">Change Admin Password</div>
+    <div class="form-group">
+      <label>Current Password</label>
+      <input type="password" id="curr-pass" placeholder="Enter current password">
+    </div>
+    <div class="form-group">
+      <label>New Password</label>
+      <input type="password" id="new-pass" placeholder="Enter new password">
+    </div>
+    <div class="form-group">
+      <label>Confirm New Password</label>
+      <input type="password" id="conf-pass" placeholder="Confirm new password">
+    </div>
+    <div class="error-msg" id="pass-err"></div>
+    <button class="btn btn-primary" onclick="changePassword()">Change Password</button>
+
+    <div class="section-title" style="margin-top:24px">Linked Sheets Manager</div>
+    <div id="admin-sheets-list"></div>
+
+    <div class="btn-row" style="margin-top:12px">
+      <button class="btn btn-ghost" onclick="closeModal('admin-modal')">Close</button>
+    </div>
+  </div>
+</div>
+
+<!-- Team Modal -->
+<div class="overlay" id="team-modal">
+  <div class="modal" style="width:560px">
+    <div class="modal-title"><span class="icon">👥</span> Team Access Management</div>
+
+    <div class="section-title">Add New Member</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+      <div class="form-group" style="margin:0">
+        <label>Name</label>
+        <input type="text" id="new-member-name" placeholder="John Doe">
+      </div>
+      <div class="form-group" style="margin:0">
+        <label>Email</label>
+        <input type="text" id="new-member-email" placeholder="john@company.com">
+      </div>
+      <div class="form-group" style="margin:0">
+        <label>Role</label>
+        <select id="new-member-role">
+          <option>Viewer</option>
+          <option>Editor</option>
+          <option>Manager</option>
+          <option>Admin</option>
+        </select>
+      </div>
+      <div class="form-group" style="margin:0">
+        <label>Sheet Access</label>
+        <select id="new-member-sheet">
+          <option value="all">All Sheets</option>
+        </select>
+      </div>
+    </div>
+    <button class="btn btn-primary" style="margin-top:12px" onclick="addMember()">Add Member</button>
+
+    <div class="section-title" style="margin-top:20px">Current Team (<span id="team-count">0</span>)</div>
+    <div class="team-list" id="team-list-container"></div>
+
+    <div class="btn-row">
+      <button class="btn btn-ghost" onclick="closeModal('team-modal')">Close</button>
+    </div>
+  </div>
+</div>
+
+<!-- Toast -->
+<div id="toast">✓ <span id="toast-msg">Done</span></div>
 
 <script>
-/* ══════════ DATA ══════════ */
+// ═══════════════════════════════════════════════════
+//  STATE
+// ═══════════════════════════════════════════════════
+const STATE = {
+  auth: { password: 'admin123', user: { name:'Admin', email:'admin@paralleldots.com', role:'super' } },
+  currentUser: null,
+  company: 'Company 1',
+  activeSheet: 'overview',
+  activeTab: 'overview',
+  sheets: [], // { id, name, icon, url, tabs:[], data:{tabName:[rows]} }
+  visibleCols: {}, // sheetId+tabName -> [colNames]
+  filters: { status: 'all', search: '', company: false },
+  teams: [
+    { id:'t1', name:'Priya Sharma', email:'priya@paralleldots.com', role:'Manager', sheetAccess:'all' },
+    { id:'t2', name:'Rahul Verma', email:'rahul@paralleldots.com', role:'Viewer', sheetAccess:'all' },
+  ],
+  currentSheetObj: null,
+  currentTabData: [],
+  sortCol: null, sortDir: 1,
+};
 
-// ── GOOGLE SHEETS INTEGRATION ──
-// To connect live data from Google Sheets:
-// 1. Deploy a Google Apps Script Web App from your Master Revenue sheet
-// 2. Replace the URL below with your deployed script URL
-// 3. Uncomment the fetchLiveData() call in initApp()
-// const SCRIPT_URL = 'https://script.google.com/macros/s/YOUR_SCRIPT_ID/exec';
-// async function fetchLiveData() {
-//   const res = await fetch(SCRIPT_URL + '?action=getRevenue');
-//   const data = await res.json();
-//   // Update chart data here
-// }
-
-var MEMBERS = [
-  {id:'PD0012',name:'P C Sharma',initials:'PCS',role:'superadmin',dept:'Master Admin',active:true,
-   perms:{overview:true,team:true,projects:true,invoices:true,access:true}},
-  {id:'PD0001',name:'Angam Parashar',initials:'AP',role:'superadmin',dept:'Boss / CCO',active:true,
-   perms:{overview:true,team:true,projects:true,invoices:true,access:true}},
-  {id:'PD0287',name:'Kartik Begari',initials:'KB',role:'revoked',dept:'Left company',active:false,
-   perms:{overview:false,team:false,projects:false,invoices:false,access:false}},
-  {id:'PD0129',name:'Akshay Jain',initials:'AJ',role:'sales',dept:'Sales team',active:true,
-   perms:{overview:false,team:false,projects:true,invoices:true,access:false}},
-  {id:'PD0057',name:'Ayush Srivastava',initials:'AS',role:'sales',dept:'Sales team',active:true,
-   perms:{overview:false,team:false,projects:true,invoices:true,access:false}},
-  {id:'PD0211',name:'Akshay Bharti',initials:'AB',role:'sales',dept:'Sales team',active:true,
-   perms:{overview:false,team:false,projects:true,invoices:true,access:false}},
-  {id:'PD0227',name:'Yuvraj Anand',initials:'YA',role:'sales',dept:'Sales team',active:true,
-   perms:{overview:false,team:false,projects:true,invoices:true,access:false}},
-  {id:'PD0175',name:'Kartik Singh',initials:'KS',role:'sales',dept:'Sales team',active:true,
-   perms:{overview:false,team:false,projects:true,invoices:true,access:false}},
-  {id:'PD0190',name:'Shantanu Singh',initials:'SS',role:'sales',dept:'Sales team',active:true,
-   perms:{overview:false,team:false,projects:true,invoices:true,access:false}},
-  {id:'PD0352',name:'Grusha Nayyar',initials:'GN',role:'finance',dept:'Company CA',active:true,accessLevel:'view',
-   perms:{overview:true,team:false,projects:false,invoices:true,access:false}},
-  {id:'PD0269',name:'Gaurav Kumar',initials:'GK',role:'finance',dept:'Accountant',active:true,accessLevel:'view',
-   perms:{overview:true,team:false,projects:false,invoices:true,access:false}}
-];
-
-var TEAM_DATA = [
-  {name:'Angam Parashar',empId:'PD0001',av:'av-teal',clients:'BAT Global, Unilever, Dabur, Roamler',rev2025:68400,rev2026:31200},
-  {name:'Akshay Jain',empId:'PD0129',av:'av-blue',clients:'Kelloggs, RPSG, Mars Wrigley, ITC India',rev2025:42800,rev2026:18200},
-  {name:'Ankit Singh',empId:'—',av:'av-amber',clients:'Colgate, Logyca, Marco Market MX, Haribo',rev2025:38600,rev2026:16800},
-  {name:'Ayush Srivastava',empId:'PD0057',av:'av-blue',clients:'Multiple accounts',rev2025:28400,rev2026:12600},
-  {name:'Akshay Bharti',empId:'PD0211',av:'av-amber',clients:'Multiple accounts',rev2025:16200,rev2026:6800},
-  {name:'Yuvraj Anand',empId:'PD0227',av:'av-teal',clients:'Multiple accounts',rev2025:18200,rev2026:7400},
-  {name:'Kartik Singh',empId:'PD0175',av:'av-blue',clients:'Multiple accounts',rev2025:21400,rev2026:9200},
-  {name:'Shantanu Singh',empId:'PD0190',av:'av-amber',clients:'Multiple accounts',rev2025:19800,rev2026:8600}
-];
-
-var PROJECTS = [
-  {code:'PD002',name:'ITC Cigarettes India',type:'Roll-out',country:'India',product:'ShelfWatch',sales:'Akshay Jain'},
-  {code:'PD018',name:'Mondelez India Visi',type:'Roll-out',country:'India',product:'ShelfWatch',sales:'Angam Parashar'},
-  {code:'PD026',name:'ITC Marketing Audits India',type:'Roll-out',country:'India',product:'ShelfWatch',sales:'Akshay Jain'},
-  {code:'PD045',name:'BAT Nigeria',type:'Roll-out',country:'Nigeria',product:'ShelfWatch',sales:'Angam Parashar'},
-  {code:'PD046',name:'Cencosud Peru',type:'Roll-out',country:'Peru',product:'ShelfWatch',sales:'Ankit Singh'},
-  {code:'PD055',name:'Tata Consumer India',type:'Roll-out',country:'India',product:'ShelfWatch',sales:'Akshay Jain'},
-  {code:'PD062',name:'Elgeka Greece',type:'Roll-out',country:'Greece',product:'ShelfWatch',sales:'Angam Parashar'},
-  {code:'PD076',name:'Colgate India',type:'Roll-out',country:'India',product:'ShelfWatch',sales:'Ankit Singh'},
-  {code:'PD098',name:'Roamler Netherlands',type:'Roll-out',country:'Netherlands',product:'ShelfWatch',sales:'Angam Parashar'},
-  {code:'PD102',name:'Mondelez India GT',type:'Roll-out',country:'India',product:'ShelfWatch',sales:'Angam Parashar'},
-  {code:'PD113',name:'Mars Wrigley AC India',type:'Roll-out',country:'India',product:'ShelfWatch',sales:'Akshay Jain'},
-  {code:'PD116',name:'RPSG GT India',type:'Roll-out',country:'India',product:'ShelfWatch',sales:'Akshay Jain'},
-  {code:'PD135',name:'Marco Market Mexico',type:'Roll-out',country:'Mexico',product:'ShelfWatch',sales:'Ankit Singh'},
-  {code:'PD140',name:'Penafiel Eciton Mexico',type:'Roll-out',country:'Mexico',product:'ShelfWatch',sales:'Ankit Singh'},
-  {code:'PD148',name:'College Hill NZ',type:'Roll-out',country:'New Zealand',product:'ShelfWatch',sales:'Akshay Jain'},
-  {code:'PD154',name:'Logyca Colombia',type:'Roll-out',country:'Colombia',product:'ShelfWatch',sales:'Ankit Singh'},
-  {code:'PD163',name:'Mamee Syntrino Malaysia',type:'Roll-out',country:'Malaysia',product:'ShelfWatch',sales:'Maks Mukundan'},
-  {code:'PD168',name:'BAT UK',type:'Roll-out',country:'UK',product:'ShelfWatch',sales:'Angam Parashar'},
-  {code:'PD172',name:'Dabur India',type:'Roll-out',country:'India',product:'ShelfWatch',sales:'Angam Parashar'},
-  {code:'PD178',name:'Astral Adhesives India',type:'Roll-out',country:'India',product:'ShelfWatch',sales:'Akshay Jain'},
-  {code:'PD185',name:'SCJohnson Eciton Mexico',type:'Roll-out',country:'Mexico',product:'ShelfWatch',sales:'Ankit Singh'},
-  {code:'PD200',name:'Mondelez Vietnam GT',type:'Roll-out',country:'Vietnam',product:'ShelfWatch',sales:'Ankit Singh'},
-  {code:'PD205',name:'BAT US RAI',type:'Roll-out',country:'USA',product:'ShelfWatch',sales:'Angam Parashar'},
-  {code:'PD209',name:'BAT Italy',type:'Roll-out',country:'Italy',product:'ShelfWatch',sales:'Angam Parashar'},
-  {code:'PD214',name:'Novamex Repsly US',type:'Roll-out',country:'USA',product:'ShelfWatch',sales:'Angam Parashar'},
-  {code:'PD216',name:'BAT Nigeria',type:'Roll-out',country:'Nigeria',product:'ShelfWatch',sales:'Angam Parashar'},
-  {code:'PD224',name:'BAT Uzbekistan',type:'Roll-out',country:'Uzbekistan',product:'ShelfWatch',sales:'Angam Parashar'},
-  {code:'PD234',name:'Massy Distribution TT',type:'Roll-out',country:'Trinidad',product:'ShelfWatch',sales:'Akshay Jain'},
-  {code:'PD236',name:'BAT Brazil',type:'Roll-out',country:'Brazil',product:'ShelfWatch',sales:'Angam Parashar'},
-  {code:'PD238',name:'BAT South Africa',type:'Roll-out',country:'South Africa',product:'ShelfWatch',sales:'Angam Parashar'},
-  {code:'PD256',name:'Asahi Slovakia',type:'Roll-out',country:'Slovakia',product:'ShelfWatch',sales:'Ankit Singh'},
-  {code:'PD003',name:'Tata Consumer India',type:'Pilot',country:'India',product:'ShelfWatch',sales:'Akshay Jain'},
-  {code:'PD052',name:'GURI Israel',type:'Pilot',country:'Israel',product:'ShelfWatch',sales:'Akshay Jain'},
-  {code:'PD129',name:'Transmed UAE',type:'Pilot',country:'UAE',product:'ShelfWatch',sales:'Akshay Jain'},
-  {code:'PD162',name:'JMD Portugal',type:'Pilot',country:'Portugal',product:'ShelfWatch',sales:'Ankit Singh'},
-  {code:'PD181',name:'Carlsberg India',type:'Pilot',country:'India',product:'ShelfWatch',sales:'Akshay Jain'},
-  {code:'PD189',name:'Tarweej Saudi Arabia',type:'Pilot',country:'Saudi Arabia',product:'ShelfWatch',sales:'Akshay Jain'},
-  {code:'PD211',name:'Leadtech Hungary',type:'Pilot',country:'Hungary',product:'ShelfWatch',sales:'Akshay Jain'},
-  {code:'PD219',name:'Mondelez Philippines',type:'Pilot',country:'Philippines',product:'ShelfWatch',sales:'Ankit Singh'},
-  {code:'PD231',name:'Teamcore Chile',type:'Pilot',country:'Chile',product:'ShelfWatch',sales:'Angam Parashar'},
-  {code:'PD252',name:'EFES Menuwatch Turkey',type:'Pilot',country:'Turkey',product:'MenuWatch',sales:'Akshay Jain'},
-  {code:'PD258',name:'Organico Solutions Dubai',type:'Pilot',country:'Dubai',product:'ShelfWatch',sales:'Akshay Jain'},
-  {code:'PD270',name:'Lipton South Africa',type:'Pilot',country:'South Africa',product:'ShelfWatch',sales:'Akshay Jain'},
-  {code:'PD279',name:'Kraft Heinz Indonesia',type:'Pilot',country:'Indonesia',product:'ShelfWatch',sales:'Akshay Jain'},
-  {code:'PD010',name:'P&G Analytics Indonesia',type:'POC',country:'Indonesia',product:'ShelfWatch',sales:'Kushank Poddar'},
-  {code:'PD166',name:'ORG India',type:'POC',country:'India',product:'ShelfWatch',sales:'Akshay Jain'},
-  {code:'PD181',name:'Carlsberg India',type:'POC',country:'India',product:'ShelfWatch',sales:'Akshay Jain'},
-  {code:'PD183',name:'DKSH Thailand',type:'POC',country:'Thailand',product:'ShelfWatch',sales:'Akshay Jain'},
-  {code:'PD223',name:'Botree India',type:'POC',country:'India',product:'ShelfWatch',sales:'Akshay Jain'},
-  {code:'PD251',name:'Nielsen UAE',type:'POC',country:'UAE',product:'ShelfWatch',sales:'Akshay Jain'},
-  {code:'PD259',name:'BestBuy USA',type:'POC',country:'USA',product:'ShelfWatch',sales:'Angam Parashar'},
-  {code:'PD265',name:'HRI India',type:'POC',country:'India',product:'ShelfWatch',sales:'Akshay Jain'}
-];
-
-var INVOICES = [
-  {inv:'INV-2025-014',account:'Chi',country:'Nigeria',period:'Feb 2025',amount:1587.60,due:'15 Feb 2025',status:'Collected'},
-  {inv:'INV-2025-073',account:'Chi',country:'Nigeria',period:'Mar 2025',amount:1851.30,due:'3 May 2025',status:'Collected'},
-  {inv:'INV-2025-095',account:'Chi',country:'Nigeria',period:'Apr 2025',amount:2006.14,due:'4 Jun 2025',status:'Collected'},
-  {inv:'INV-2025-132',account:'Chi',country:'Nigeria',period:'May 2025',amount:2034.23,due:'5 Jul 2025',status:'Collected'},
-  {inv:'INV-2025-154',account:'Chi',country:'Nigeria',period:'Jun 2025',amount:1988.79,due:'2 Aug 2025',status:'Pending'},
-  {inv:'INV-2025-181',account:'Chi',country:'Nigeria',period:'Jul 2025',amount:2140.91,due:'4 Sep 2025',status:'Pending'},
-  {inv:'INV-2025-011',account:'JMD',country:'Portugal',period:'Dec 2024',amount:1218.00,due:'7 Feb 2025',status:'Collected'},
-  {inv:'INV-2025-039',account:'JMD',country:'Portugal',period:'Jan 2025',amount:1218.00,due:'8 Mar 2025',status:'Collected'},
-  {inv:'INV-2025-052',account:'JMD',country:'Portugal',period:'Feb 2025',amount:1218.00,due:'2 Apr 2025',status:'Collected'},
-  {inv:'INV-2025-043',account:'Sappe',country:'Philippines',period:'Rollout Setup',amount:2000.00,due:'8 Mar 2025',status:'Collected'},
-  {inv:'INV-2025-071',account:'Sappe',country:'Philippines',period:'Mar 2025',amount:1000.00,due:'3 May 2025',status:'Collected'},
-  {inv:'INV-2025-088',account:'Sappe',country:'Philippines',period:'Apr 2025',amount:2000.00,due:'31 May 2025',status:'Collected'},
-  {inv:'INV-2025-115',account:'Sappe',country:'Philippines',period:'May 2025',amount:2000.00,due:'1 Jul 2025',status:'Pending'},
-  {inv:'INV-2025-144',account:'Sappe',country:'Philippines',period:'Jun 2025',amount:3600.00,due:'31 Jul 2025',status:'Pending'},
-  {inv:'INV-2025-176',account:'Sappe',country:'Philippines',period:'Jul 2025',amount:2000.00,due:'31 Aug 2025',status:'Pending'},
-  {inv:'INV-2025-020',account:'Traxlo',country:'Lithuania',period:'One-time pilot',amount:1500.00,due:'28 Feb 2025',status:'Collected'}
-];
-
-var MONTH_LABELS=['Jan-24','Feb-24','Mar-24','Apr-24','May-24','Jun-24','Jul-24','Aug-24','Sep-24','Oct-24','Nov-24','Dec-24','Jan-25','Feb-25','Mar-25','Apr-25','May-25','Jun-25','Jul-25','Aug-25','Sep-25','Oct-25','Nov-25','Dec-25','Jan-26','Feb-26','Mar-26','Apr-26','May-26','Jun-26'];
-var EARNED=[230116,237975,260626,267672,291107,296836,303917,295748,303390,311803,330564,338276,334412,334884,328234,327595,342487,349480,339771,362880,411528,425045,421753,504310,376164,363251,372989,360132,403978,440460];
-var INVOICED=[263034,101560,150813,176826,444962,137702,177958,208286,712116,733038,231874,358187,359174,191094,255977,171099,377372,371009,507713,531654,393075,606478,307278,753180,249464,267461,171944,236059,309251,553778];
-var COLLECTED=[195700,73781,357655,151658,33781,268036,156242,197178,431745,364012,334679,556015,223283,219820,116928,484732,161594,304220,238989,386715,521474,329646,180234,615595,818601,73395,317179,282878,339831,130231];
-
-/* ══════════ STATE ══════════ */
-var currentUser = null;
-var chartsInit = false;
-
-/* ══════════ LOGIN ══════════ */
-function doLogin(){
-  var empId = document.getElementById('empInput').value.trim().toUpperCase();
-  var pass = document.getElementById('passInput').value.trim().toUpperCase();
-  var errEl = document.getElementById('loginError');
-  errEl.style.display='none';
-  if(!empId || !pass){ errEl.style.display='block'; errEl.textContent='Please enter Employee ID and password.'; return; }
-  var member = MEMBERS.find(m => m.id === empId);
-  if(!member || pass !== empId){ errEl.style.display='block'; errEl.textContent='Invalid Employee ID or password. Please try again.'; return; }
-  currentUser = member;
-  document.getElementById('loginPage').style.display='none';
-  document.getElementById('appPage').style.display='flex';
-  initApp();
-}
-document.getElementById('passInput').addEventListener('keydown',function(e){if(e.key==='Enter')doLogin();});
-document.getElementById('empInput').addEventListener('keydown',function(e){if(e.key==='Enter')document.getElementById('passInput').focus();});
-
-function doLogout(){
-  currentUser=null; chartsInit=false;
-  document.getElementById('appPage').style.display='none';
-  document.getElementById('loginPage').style.display='flex';
-  document.getElementById('empInput').value='';
-  document.getElementById('passInput').value='';
-  document.getElementById('loginError').style.display='none';
+// Load persisted state
+function loadState() {
+  try {
+    const s = localStorage.getItem('pd_state');
+    if (s) {
+      const saved = JSON.parse(s);
+      if (saved.auth) STATE.auth = saved.auth;
+      if (saved.sheets) STATE.sheets = saved.sheets;
+      if (saved.visibleCols) STATE.visibleCols = saved.visibleCols;
+      if (saved.teams) STATE.teams = saved.teams;
+    }
+  } catch(e){}
 }
 
-/* ══════════ INIT APP ══════════ */
-function initApp(){
-  var u = currentUser;
-  // Update sidebar user
-  document.getElementById('sbName').textContent = u.name;
-  document.getElementById('sbRole').textContent = u.role==='superadmin'?'Super Admin':u.role==='sales'?'Sales CS':u.role==='finance'?'Finance / CA':'Revoked';
-  document.getElementById('sbAvatar').textContent = u.initials;
-  // Build nav
-  buildNav();
-  // Navigate to first allowed tab
-  if(!u.active){ showSection('blocked'); return; }
-  if(u.perms.overview) showSection('overview');
-  else if(u.perms.team) showSection('team');
-  else if(u.perms.projects) showSection('projects');
-  else if(u.perms.invoices) showSection('invoices');
-  else showSection('blocked');
-  // Init charts after first render
-  if(!chartsInit){ setTimeout(initCharts,100); chartsInit=true; }
-  renderTeamTable();
-  renderProjects();
-  renderInvoices();
-  renderAccessCards();
+function saveState() {
+  localStorage.setItem('pd_state', JSON.stringify({
+    auth: STATE.auth,
+    sheets: STATE.sheets,
+    visibleCols: STATE.visibleCols,
+    teams: STATE.teams
+  }));
 }
 
-/* ══════════ SIDEBAR NAV ══════════ */
-var NAV_ITEMS = [
-  {id:'overview',label:'Overview',icon:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/></svg>'},
-  {id:'team',label:'Team performance',icon:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="7" r="4"/><path d="M3 21v-2a4 4 0 014-4h4a4 4 0 014 4v2"/><circle cx="19" cy="7" r="3"/><path d="M23 21v-2a3 3 0 00-2-2.8"/></svg>'},
-  {id:'projects',label:'Projects',icon:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 00-2-2h-4a2 2 0 00-2 2v2"/></svg>'},
-  {id:'invoices',label:'Invoice tracker',icon:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>'},
-  {id:'access',label:'Access control',icon:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>'}
-];
+// ═══════════════════════════════════════════════════
+//  LOGIN
+// ═══════════════════════════════════════════════════
+function doLogin() {
+  const email = document.getElementById('login-email').value.trim();
+  const pass = document.getElementById('login-pass').value;
 
-function buildNav(){
-  var nav = document.getElementById('sidebarNav');
-  nav.innerHTML='';
-  NAV_ITEMS.forEach(function(item){
-    if(!currentUser.perms[item.id]) return;
-    var div = document.createElement('div');
-    div.className='sb-item';
-    div.id='nav-'+item.id;
-    div.innerHTML=item.icon+'<span>'+item.label+'</span>';
-    div.onclick=function(){ showSection(item.id); };
-    nav.appendChild(div);
+  // super admin
+  if (email === STATE.auth.user.email && pass === STATE.auth.password) {
+    STATE.currentUser = { ...STATE.auth.user };
+    loginSuccess();
+    return;
+  }
+  // team member
+  const member = STATE.teams.find(t => t.email === email);
+  if (member && pass === 'member123') {
+    STATE.currentUser = { name: member.name, email: member.email, role: member.role, sheetAccess: member.sheetAccess };
+    loginSuccess();
+    return;
+  }
+  document.getElementById('login-err').textContent = 'Invalid credentials. Try again.';
+}
+
+function loginSuccess() {
+  document.getElementById('login-screen').style.display = 'none';
+  const u = STATE.currentUser;
+  document.getElementById('user-display').textContent = u.name;
+  document.getElementById('user-avatar').textContent = u.name[0].toUpperCase();
+  document.getElementById('user-badge').textContent = u.role === 'super' ? 'SUPER' : u.role.toUpperCase();
+  document.getElementById('login-email').addEventListener('keydown', e => e.key==='Enter' && doLogin());
+  renderSidebar();
+  renderOverview();
+}
+
+document.getElementById('login-pass').addEventListener('keydown', e => e.key==='Enter' && doLogin());
+document.getElementById('login-email').addEventListener('keydown', e => e.key==='Enter' && doLogin());
+
+// ═══════════════════════════════════════════════════
+//  MODAL HELPERS
+// ═══════════════════════════════════════════════════
+function openModal(id) {
+  if (id === 'admin-modal' && STATE.currentUser?.role !== 'super') {
+    return showToast('Super Admin access required', 'error');
+  }
+  document.getElementById(id).classList.add('open');
+  if (id === 'admin-modal') renderAdminSheets();
+  if (id === 'team-modal') renderTeamModal();
+  if (id === 'col-modal') renderColPicker();
+}
+function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+document.querySelectorAll('.overlay').forEach(o => o.addEventListener('click', e => { if(e.target===o) o.classList.remove('open'); }));
+
+// ═══════════════════════════════════════════════════
+//  TOAST
+// ═══════════════════════════════════════════════════
+let toastTimer;
+function showToast(msg, type='success') {
+  const t = document.getElementById('toast');
+  document.getElementById('toast-msg').textContent = msg;
+  t.className = `show ${type}`;
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.className = '', 3000);
+}
+
+// ═══════════════════════════════════════════════════
+//  SIDEBAR
+// ═══════════════════════════════════════════════════
+function renderSidebar() {
+  const list = document.getElementById('sheet-nav-list');
+  let html = '';
+  STATE.sheets.forEach(sh => {
+    // access check
+    if (STATE.currentUser?.sheetAccess !== 'all' && STATE.currentUser?.sheetAccess !== sh.id) return;
+    html += `<div class="sheet-item" id="nav-${sh.id}" onclick="selectSheet('${sh.id}')">
+      <span class="sheet-icon">${sh.icon}</span> ${sh.name}
+      <span class="sheet-count">${sh.tabs?.length || 0}</span>
+    </div>`;
   });
+  if (!html) html = `<div style="padding:10px 14px;font-size:12px;color:var(--text3)">No sheets linked yet</div>`;
+  list.innerHTML = html;
+
+  // Update team sheet select
+  const sel = document.getElementById('new-member-sheet');
+  if (sel) {
+    let opts = '<option value="all">All Sheets</option>';
+    STATE.sheets.forEach(sh => { opts += `<option value="${sh.id}">${sh.name}</option>`; });
+    sel.innerHTML = opts;
+  }
 }
 
-/* ══════════ SECTION SWITCH ══════════ */
-function showSection(id){
-  document.querySelectorAll('.section').forEach(s=>s.classList.remove('active'));
-  document.querySelectorAll('.sb-item').forEach(b=>b.classList.remove('active'));
-  var sec = document.getElementById('sec-'+id);
-  if(sec) sec.classList.add('active');
-  var navItem = document.getElementById('nav-'+id);
-  if(navItem) navItem.classList.add('active');
+function selectSheet(id) {
+  STATE.activeSheet = id;
+  document.querySelectorAll('.sheet-item').forEach(el => el.classList.remove('active'));
+  const el = document.getElementById(`nav-${id}`);
+  if (el) el.classList.add('active');
+
+  if (id === 'overview') {
+    document.getElementById('page-title').textContent = 'Overview';
+    showPage('overview');
+    renderTabsFor(null);
+    renderOverview();
+  } else {
+    const sh = STATE.sheets.find(s => s.id === id);
+    if (!sh) return;
+    STATE.currentSheetObj = sh;
+    document.getElementById('page-title').textContent = sh.name;
+    renderTabsFor(sh);
+    showPage('sheet');
+    if (sh.tabs && sh.tabs.length > 0) selectTab(sh.tabs[0], null, sh);
+    else fetchSheetData(sh);
+  }
 }
 
-/* ══════════ CHARTS ══════════ */
-function initCharts(){
-  // Main revenue chart
-  new Chart(document.getElementById('mainRevChart'),{
-    type:'line',
-    data:{labels:MONTH_LABELS,datasets:[
-      {label:'Earned',data:EARNED,borderColor:'#0F6E56',backgroundColor:'rgba(15,110,86,0.07)',borderWidth:2,pointRadius:2,tension:0.35,fill:true},
-      {label:'Invoiced',data:INVOICED,borderColor:'#185FA5',borderWidth:2,pointRadius:2,tension:0.35,fill:false},
-      {label:'Collected',data:COLLECTED,borderColor:'#BA7517',borderWidth:1.5,pointRadius:2,tension:0.35,fill:false,borderDash:[5,3]}
-    ]},
-    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:function(c){return c.dataset.label+': $'+Math.round(c.raw/1000)+'K';}}}},scales:{x:{ticks:{font:{size:10},maxRotation:45,autoSkip:true,maxTicksLimit:15}},y:{ticks:{callback:function(v){return '$'+Math.round(v/1000)+'K';},font:{size:10}},grid:{color:'rgba(0,0,0,0.05)'}}}}
-  });
-  // Revenue type donut
-  new Chart(document.getElementById('typeChart'),{
-    type:'doughnut',
-    data:{labels:['Sub: fixed','Sub: usage','One-time: pilot','One-time: service','Other'],
-      datasets:[{data:[28,35,20,10,7],backgroundColor:['#0F6E56','#5DCAA5','#185FA5','#85B7EB','#EF9F27'],borderWidth:0}]},
-    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:function(c){return c.label+': '+c.parsed+'%';}}}},cutout:'62%'}
-  });
-  // Top clients
-  new Chart(document.getElementById('clientChart'),{
-    type:'bar',
-    data:{labels:['BAT Global','Mondelez India','Unilever','ITC India','Marco Market'],
-      datasets:[{data:[2840,1920,1650,1420,980],backgroundColor:'#534AB7',borderRadius:4,borderSkipped:false}]},
-    options:{responsive:true,maintainAspectRatio:false,indexAxis:'y',plugins:{legend:{display:false},tooltip:{callbacks:{label:function(c){return '$'+c.raw+'K';}}}},scales:{x:{ticks:{callback:function(v){return '$'+v+'K';},font:{size:10}},grid:{color:'rgba(0,0,0,0.05)'}},y:{ticks:{font:{size:11}}}}}
-  });
-  // Team chart
-  new Chart(document.getElementById('teamChart'),{
-    type:'bar',
-    data:{
-      labels:TEAM_DATA.map(function(m){var p=m.name.split(' ');return p[0]+' '+p[p.length-1][0]+'.';}),
-      datasets:[
-        {label:'2025',data:TEAM_DATA.map(function(m){return m.rev2025;}),backgroundColor:'#0F6E56',borderRadius:3,borderSkipped:false},
-        {label:'2026 YTD',data:TEAM_DATA.map(function(m){return m.rev2026;}),backgroundColor:'#185FA5',borderRadius:3,borderSkipped:false}
-      ]
-    },
-    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:function(c){return c.dataset.label+': $'+Math.round(c.raw/1000)+'K';}}}},scales:{x:{ticks:{font:{size:11}}},y:{ticks:{callback:function(v){return '$'+Math.round(v/1000)+'K';},font:{size:10}},grid:{color:'rgba(0,0,0,0.05)'}}}}
-  });
+function toggleSidebar() {
+  document.getElementById('sidebar').classList.toggle('open');
 }
 
-/* ══════════ TEAM TABLE ══════════ */
-function renderTeamTable(){
-  var body = document.getElementById('teamTableBody');
-  body.innerHTML='';
-  TEAM_DATA.forEach(function(m){
-    var tr=document.createElement('tr');
-    tr.innerHTML='<td><div style="display:flex;align-items:center;gap:9px"><div class="av '+m.av+'">'+m.initials+'</div><span style="font-weight:500">'+m.name+'</span></div></td>'+
-      '<td><span class="mono">'+m.empId+'</span></td>'+
-      '<td style="color:var(--gray6);font-size:12px">'+m.clients+'</td>'+
-      '<td style="font-weight:500">$'+Math.round(m.rev2025/1000)+'K</td>'+
-      '<td style="font-weight:500;color:var(--teal)">$'+Math.round(m.rev2026/1000)+'K</td>'+
-      '<td><span class="pill pill-green">Active</span></td>';
-    body.appendChild(tr);
-  });
-}
-
-/* ══════════ PROJECTS TABLE ══════════ */
-function renderProjects(){
-  var tf=document.getElementById('projTypeFilter').value;
-  var sf=document.getElementById('projSalesFilter').value;
-  var filtered=PROJECTS.filter(function(p){return(tf==='all'||p.type===tf)&&(sf==='all'||p.sales===sf);});
-  document.getElementById('projCountLabel').textContent=filtered.length+' projects';
-  var body=document.getElementById('projTableBody');
-  body.innerHTML='';
-  filtered.forEach(function(p){
-    var pillCls=p.type==='Roll-out'?'pill-green':p.type==='Pilot'?'pill-amber':'pill-blue';
-    var tr=document.createElement('tr');
-    tr.innerHTML='<td><span class="mono">'+p.code+'</span></td>'+
-      '<td style="font-weight:500">'+p.name+'</td>'+
-      '<td><span class="pill '+pillCls+'">'+p.type+'</span></td>'+
-      '<td>'+p.country+'</td>'+
-      '<td><span class="pill pill-gray">'+p.product+'</span></td>'+
-      '<td style="color:var(--gray6)">'+p.sales+'</td>';
-    body.appendChild(tr);
-  });
-}
-
-/* ══════════ INVOICES TABLE ══════════ */
-function renderInvoices(){
-  var sf=document.getElementById('invStatusFilter').value;
-  var filtered=INVOICES.filter(function(i){return sf==='all'||i.status===sf;});
-  var body=document.getElementById('invTableBody');
-  body.innerHTML='';
-  filtered.forEach(function(i){
-    var pill=i.status==='Collected'?'<span class="pill pill-green">Collected</span>':'<span class="pill pill-amber">Pending</span>';
-    var tr=document.createElement('tr');
-    tr.innerHTML='<td><span class="mono">'+i.inv+'</span></td>'+
-      '<td style="font-weight:500">'+i.account+'</td>'+
-      '<td>'+i.country+'</td>'+
-      '<td style="color:var(--gray6)">'+i.period+'</td>'+
-      '<td style="font-weight:500">$'+i.amount.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2})+'</td>'+
-      '<td style="color:var(--gray6)">'+i.due+'</td>'+
-      '<td>'+pill+'</td>';
-    body.appendChild(tr);
-  });
-}
-
-/* ══════════ ACCESS CARDS ══════════ */
-var PERM_LABELS={overview:'Overview & revenue',team:'Team performance',projects:'Project list',invoices:'Invoice tracker',access:'Access control'};
-var AL_OPTIONS=[{val:'view',label:'View only'},{val:'edit',label:'View + edit'},{val:'full',label:'Full access'}];
-
-function renderAccessCards(){
-  var cont=document.getElementById('accessCards');
-  cont.innerHTML='';
-  MEMBERS.forEach(function(m,idx){
-    var rolePill=m.role==='superadmin'?'<span class="pill pill-green">Super Admin</span>':m.role==='sales'?'<span class="pill pill-blue">Sales CS</span>':m.role==='finance'?'<span class="pill pill-amber">Finance</span>':'<span class="pill pill-red">Revoked</span>';
-    var canEdit=m.role!=='superadmin';
-    var cardCls='access-card'+(m.role==='superadmin'?' superadmin':!m.active?' revoked':'');
-    var permHtml='';
-    Object.keys(m.perms).forEach(function(p){
-      var disabled=!canEdit||!m.active?' disabled':'';
-      var checked=m.perms[p]?' checked':'';
-      permHtml+='<div class="perm-row"><span class="perm-row-label">'+PERM_LABELS[p]+'</span><label class="toggle"><input type="checkbox"'+checked+disabled+' onchange="togglePerm('+idx+',\''+p+'\',this.checked)"><span class="tgl-sl"></span></label></div>';
+// ═══════════════════════════════════════════════════
+//  TABS
+// ═══════════════════════════════════════════════════
+function renderTabsFor(sheetObj) {
+  const bar = document.getElementById('tab-bar');
+  let html = `<div class="tab active" id="tab-overview" onclick="selectSheet('overview')">📊 Overview</div>`;
+  if (sheetObj && sheetObj.tabs) {
+    sheetObj.tabs.forEach(tab => {
+      html += `<div class="tab" id="tab-${tab}" onclick="selectTab('${tab}',this,null)">${tab}</div>`;
     });
-    var actionBtn='';
-    if(canEdit){
-      actionBtn=m.active?'<button class="revoke-btn" onclick="revokeAccess('+idx+')">Revoke access</button>':
-        '<button class="restore-btn" onclick="restoreAccess('+idx+')">Restore access</button>';
-    }
-    var alHtml='';
-    if(m.role==='finance'&&m.active){
-      alHtml='<div class="al-row"><span class="al-label">Access level:</span>';
-      AL_OPTIONS.forEach(function(opt){
-        var cls='al-btn'+((m.accessLevel||'view')===opt.val?' active':'');
-        alHtml+='<button class="'+cls+'" onclick="setAccessLevel('+idx+',\''+opt.val+'\',this)">'+opt.label+'</button>';
+  }
+  bar.innerHTML = html;
+}
+
+function selectTab(tabName, el, sheetObj) {
+  const sh = sheetObj || STATE.currentSheetObj;
+  STATE.activeTab = tabName;
+  document.querySelectorAll('#tab-bar .tab').forEach(t => t.classList.remove('active'));
+  const tel = el || document.getElementById(`tab-${tabName}`);
+  if (tel) tel.classList.add('active');
+  if (sh && sh.data && sh.data[tabName]) {
+    renderTable(sh.data[tabName], sh.id + '_' + tabName);
+  } else if (sh) {
+    fetchSheetData(sh);
+  }
+}
+
+// ═══════════════════════════════════════════════════
+//  PAGES
+// ═══════════════════════════════════════════════════
+function showPage(name) {
+  document.getElementById('page-overview').style.display = name === 'overview' ? '' : 'none';
+  document.getElementById('page-sheet').style.display = name === 'sheet' ? '' : 'none';
+}
+
+// ═══════════════════════════════════════════════════
+//  OVERVIEW
+// ═══════════════════════════════════════════════════
+function renderOverview() {
+  showPage('overview');
+  const el = document.getElementById('page-overview');
+
+  // Aggregate data from all sheets
+  let totalRows = 0, activeCount = 0, pendingCount = 0, closedCount = 0;
+  let amounts = [];
+  STATE.sheets.forEach(sh => {
+    if (sh.data) {
+      Object.values(sh.data).forEach(rows => {
+        totalRows += rows.length;
+        rows.forEach(r => {
+          const status = Object.values(r).join(' ');
+          if (status.toLowerCase().includes('active')) activeCount++;
+          if (status.toLowerCase().includes('pending')) pendingCount++;
+          if (status.toLowerCase().includes('closed')) closedCount++;
+          Object.entries(r).forEach(([k,v]) => {
+            if (k.toLowerCase().includes('amount') || k.toLowerCase().includes('value') || k.toLowerCase().includes('revenue')) {
+              const n = parseFloat(String(v).replace(/[₹,$,]/g,''));
+              if (!isNaN(n)) amounts.push(n);
+            }
+          });
+        });
       });
-      alHtml+='</div>';
     }
-    var div=document.createElement('div');
-    div.className=cardCls;
-    div.id='access-card-'+idx;
-    div.innerHTML='<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap;gap:8px">'+
-      '<div style="display:flex;align-items:center;gap:10px">'+
-        '<div class="av av-teal">'+m.initials+'</div>'+
-        '<div>'+
-          '<div style="font-size:14px;font-weight:500;color:var(--navy)">'+m.name+'</div>'+
-          '<div style="display:flex;align-items:center;gap:6px;margin-top:2px">'+
-            '<span class="mono">'+m.id+'</span>'+
-            '<span style="font-size:11px;color:var(--gray5)">'+m.dept+'</span>'+
-          '</div>'+
-        '</div>'+
-      '</div>'+
-      '<div style="display:flex;align-items:center;gap:8px">'+rolePill+actionBtn+'</div>'+
-    '</div>'+
-    permHtml+alHtml;
-    cont.appendChild(div);
+  });
+
+  const totalAmt = amounts.reduce((a,b) => a+b, 0);
+  const avgAmt = amounts.length ? totalAmt/amounts.length : 0;
+
+  el.innerHTML = `
+    <div class="overview-grid">
+      <div class="kpi-card">
+        <div class="kpi-label">Total Records</div>
+        <div class="kpi-value" style="color:var(--accent)">${totalRows.toLocaleString()}</div>
+        <div class="kpi-change up">↑ Across ${STATE.sheets.length} sheets</div>
+        <div class="kpi-bar"><div class="kpi-bar-fill" style="width:70%"></div></div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">Active</div>
+        <div class="kpi-value" style="color:var(--green)">${activeCount}</div>
+        <div class="kpi-change up">↑ Active records</div>
+        <div class="kpi-bar"><div class="kpi-bar-fill" style="width:${totalRows?Math.round(activeCount/totalRows*100):0}%;background:var(--green)"></div></div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">Pending</div>
+        <div class="kpi-value" style="color:var(--yellow)">${pendingCount}</div>
+        <div class="kpi-change" style="color:var(--yellow)">◑ Awaiting action</div>
+        <div class="kpi-bar"><div class="kpi-bar-fill" style="width:${totalRows?Math.round(pendingCount/totalRows*100):0}%;background:var(--yellow)"></div></div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">Total Value</div>
+        <div class="kpi-value" style="color:var(--accent2)">₹${formatNum(totalAmt)}</div>
+        <div class="kpi-change">Avg: ₹${formatNum(avgAmt)}</div>
+        <div class="kpi-bar"><div class="kpi-bar-fill" style="width:80%;background:linear-gradient(90deg,var(--accent2),var(--accent))"></div></div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">Linked Sheets</div>
+        <div class="kpi-value" style="color:var(--accent)">${STATE.sheets.length}</div>
+        <div class="kpi-change">Active data sources</div>
+        <div class="kpi-bar"><div class="kpi-bar-fill" style="width:${Math.min(STATE.sheets.length*20,100)}%"></div></div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">Team Members</div>
+        <div class="kpi-value" style="color:var(--green)">${STATE.teams.length}</div>
+        <div class="kpi-change">Active users</div>
+        <div class="kpi-bar"><div class="kpi-bar-fill" style="width:60%;background:var(--green)"></div></div>
+      </div>
+    </div>
+
+    ${STATE.sheets.length === 0 ? `
+    <div class="empty-state">
+      <div class="icon">📂</div>
+      <h3>No Sheets Linked Yet</h3>
+      <p>Click <strong>"Link Google Sheet"</strong> in the sidebar to connect your first sheet.<br>
+      Your data will appear here as an interactive table.</p>
+      <button class="btn btn-primary" style="margin-top:16px" onclick="openModal('link-modal')">Link Your First Sheet</button>
+    </div>` : `
+    <div class="section-title" style="margin-bottom:12px;font-size:14px;font-weight:700;color:var(--text2)">SHEET SUMMARY</div>
+    <div style="display:flex;flex-direction:column;gap:8px">
+      ${STATE.sheets.map(sh => {
+        const rows = Object.values(sh.data||{}).flat().length;
+        return `<div class="kpi-card" style="padding:12px 16px;cursor:pointer" onclick="selectSheet('${sh.id}')">
+          <div style="display:flex;align-items:center;gap:10px">
+            <span style="font-size:20px">${sh.icon}</span>
+            <div style="flex:1">
+              <div style="font-weight:700">${sh.name}</div>
+              <div style="font-size:12px;color:var(--text2)">${rows} records · ${sh.tabs?.length||0} tabs</div>
+            </div>
+            <span style="font-size:20px;color:var(--text3)">›</span>
+          </div>
+        </div>`;
+      }).join('')}
+    </div>`}
+  `;
+}
+
+function formatNum(n) {
+  if (n >= 1e7) return (n/1e7).toFixed(1) + 'Cr';
+  if (n >= 1e5) return (n/1e5).toFixed(1) + 'L';
+  if (n >= 1e3) return (n/1e3).toFixed(1) + 'K';
+  return n.toFixed(0);
+}
+
+// ═══════════════════════════════════════════════════
+//  FETCH SHEET DATA (CSV from Google Sheets)
+// ═══════════════════════════════════════════════════
+async function fetchSheetData(sh) {
+  if (!sh.url) return;
+  const el = document.getElementById('page-sheet');
+  el.innerHTML = `<div class="empty-state"><div class="icon" style="animation:spin 1s linear infinite">⟳</div><h3>Loading sheet data...</h3></div>`;
+  showPage('sheet');
+
+  try {
+    const proxyUrl = 'https://api.allorigins.win/raw?url=' + encodeURIComponent(sh.url);
+    const res = await fetch(proxyUrl);
+    const text = await res.text();
+    const rows = parseCSV(text);
+    if (rows.length < 2) throw new Error('No data found');
+
+    const headers = rows[0];
+    const dataRows = rows.slice(1).map(r => {
+      const obj = {};
+      headers.forEach((h,i) => obj[h] = r[i] || '');
+      return obj;
+    });
+
+    // Store data
+    if (!sh.data) sh.data = {};
+    if (!sh.tabs) sh.tabs = [];
+    const tabName = sh.name;
+    sh.data[tabName] = dataRows;
+    if (!sh.tabs.includes(tabName)) sh.tabs.push(tabName);
+
+    saveState();
+    renderSidebar();
+    renderTabsFor(sh);
+    renderTable(dataRows, sh.id + '_' + tabName);
+    showToast(`Loaded ${dataRows.length} rows from ${sh.name}`);
+  } catch(err) {
+    el.innerHTML = `<div class="empty-state">
+      <div class="icon">⚠️</div>
+      <h3>Could not load sheet</h3>
+      <p>Make sure the URL is a valid published CSV link.<br>Error: ${err.message}</p>
+      <button class="btn btn-ghost" style="margin-top:12px" onclick="openModal('link-modal')">Re-link Sheet</button>
+    </div>`;
+    showToast('Failed to load sheet data', 'error');
+  }
+}
+
+function parseCSV(text) {
+  const lines = text.split('\n').filter(l => l.trim());
+  return lines.map(line => {
+    const row = [];
+    let cur = '', inQ = false;
+    for (let i = 0; i < line.length; i++) {
+      const c = line[i];
+      if (c === '"') { inQ = !inQ; }
+      else if (c === ',' && !inQ) { row.push(cur.trim()); cur = ''; }
+      else cur += c;
+    }
+    row.push(cur.trim());
+    return row;
   });
 }
 
-function togglePerm(idx,perm,val){
-  MEMBERS[idx].perms[perm]=val;
-  showToast(MEMBERS[idx].name+' — '+PERM_LABELS[perm]+' '+(val?'enabled':'disabled'));
+// ═══════════════════════════════════════════════════
+//  TABLE RENDER
+// ═══════════════════════════════════════════════════
+function renderTable(data, key) {
+  STATE.currentTabData = data;
+  const el = document.getElementById('page-sheet');
+
+  if (!data || !data.length) {
+    el.innerHTML = `<div class="empty-state"><div class="icon">📭</div><h3>No data</h3><p>This sheet appears to be empty.</p></div>`;
+    return;
+  }
+
+  const allCols = Object.keys(data[0]);
+  if (!STATE.visibleCols[key]) STATE.visibleCols[key] = allCols;
+  const cols = STATE.visibleCols[key].filter(c => allCols.includes(c));
+
+  // Apply filters
+  let filtered = data.filter(row => {
+    const search = STATE.filters.search.toLowerCase();
+    const matchSearch = !search || Object.values(row).join(' ').toLowerCase().includes(search);
+    const matchStatus = STATE.filters.status === 'all' ||
+      Object.values(row).join(' ').toLowerCase().includes(STATE.filters.status.toLowerCase());
+    const matchCo = !STATE.filters.company || Object.values(row).join(' ').toLowerCase().includes(STATE.company.toLowerCase());
+    return matchSearch && matchStatus && matchCo;
+  });
+
+  // Sort
+  if (STATE.sortCol) {
+    filtered = [...filtered].sort((a,b) => {
+      const av = a[STATE.sortCol] || '', bv = b[STATE.sortCol] || '';
+      const an = parseFloat(av.replace(/[^0-9.-]/g,'')), bn = parseFloat(bv.replace(/[^0-9.-]/g,''));
+      if (!isNaN(an) && !isNaN(bn)) return (an - bn) * STATE.sortDir;
+      return av.localeCompare(bv) * STATE.sortDir;
+    });
+  }
+
+  const PAGE = 50;
+  const page = 0;
+  const paged = filtered.slice(0, PAGE);
+
+  el.innerHTML = `
+    <div class="table-wrap">
+      <table>
+        <thead><tr>
+          ${cols.map(c => `<th onclick="sortBy('${c}')">${c} <span class="sort-icon">${STATE.sortCol===c ? (STATE.sortDir===1?'↑':'↓') : '↕'}</span></th>`).join('')}
+        </tr></thead>
+        <tbody>
+          ${paged.map(row => `<tr>${cols.map(c => `<td>${formatCell(c, row[c])}</td>`).join('')}</tr>`).join('')}
+        </tbody>
+      </table>
+      <div class="pagination">
+        <span>Showing ${paged.length} of ${filtered.length} records (${data.length} total)</span>
+        <div class="page-btns">
+          <button class="page-btn active">1</button>
+          ${filtered.length > PAGE ? `<button class="page-btn">2</button>` : ''}
+        </div>
+      </div>
+    </div>
+  `;
+
+  // Store current key for col picker
+  STATE._currentTableKey = key;
+  STATE._allCols = allCols;
 }
 
-function revokeAccess(idx){
-  MEMBERS[idx].active=false;
-  Object.keys(MEMBERS[idx].perms).forEach(function(p){MEMBERS[idx].perms[p]=false;});
-  renderAccessCards();
-  showToast(MEMBERS[idx].name+' access revoked');
+function formatCell(col, val) {
+  if (!val) return `<span style="color:var(--text3)">—</span>`;
+  const v = String(val);
+  const lc = col.toLowerCase();
+
+  // Status pill
+  if (lc.includes('status')) {
+    const cls = v.toLowerCase().includes('active') ? 'active' : v.toLowerCase().includes('pending') ? 'pending' : 'closed';
+    return `<span class="status-pill ${cls}"><span class="status-dot"></span>${v}</span>`;
+  }
+  // Amount
+  if (lc.includes('amount') || lc.includes('value') || lc.includes('revenue') || lc.includes('price')) {
+    return `<span class="amt">${v.startsWith('₹')||v.startsWith('$') ? v : '₹'+v}</span>`;
+  }
+  // Long text
+  if (v.length > 40) return `<span title="${v}">${v.slice(0,38)}…</span>`;
+  return v;
 }
 
-function restoreAccess(idx){
-  MEMBERS[idx].active=true;
-  if(MEMBERS[idx].role==='sales'){MEMBERS[idx].perms.projects=true;MEMBERS[idx].perms.invoices=true;}
-  if(MEMBERS[idx].role==='finance'){MEMBERS[idx].perms.overview=true;MEMBERS[idx].perms.invoices=true;}
-  renderAccessCards();
-  showToast(MEMBERS[idx].name+' access restored');
+function sortBy(col) {
+  if (STATE.sortCol === col) STATE.sortDir *= -1;
+  else { STATE.sortCol = col; STATE.sortDir = 1; }
+  if (STATE.currentTabData.length) renderTable(STATE.currentTabData, STATE._currentTableKey);
 }
 
-function setAccessLevel(idx,level,btn){
-  MEMBERS[idx].accessLevel=level;
-  btn.closest('.al-row').querySelectorAll('.al-btn').forEach(function(b){b.classList.remove('active');});
+// ═══════════════════════════════════════════════════
+//  FILTERS
+// ═══════════════════════════════════════════════════
+function setFilter(type, val, el) {
+  STATE.filters[type] = val;
+  document.querySelectorAll('.filter-chip').forEach(c => c.classList.remove('active'));
+  if (el) el.classList.add('active');
+  if (STATE.currentTabData.length) renderTable(STATE.currentTabData, STATE._currentTableKey);
+}
+
+function applyFilters() {
+  STATE.filters.search = document.getElementById('search-input').value;
+  if (STATE.currentTabData.length) renderTable(STATE.currentTabData, STATE._currentTableKey);
+}
+
+function toggleCompanyFilter(el) {
+  STATE.filters.company = !STATE.filters.company;
+  el.classList.toggle('active', STATE.filters.company);
+  if (STATE.currentTabData.length) renderTable(STATE.currentTabData, STATE._currentTableKey);
+}
+
+// ═══════════════════════════════════════════════════
+//  COMPANY SWITCH
+// ═══════════════════════════════════════════════════
+function switchCompany(name, btn) {
+  STATE.company = name;
+  document.querySelectorAll('.co-btn').forEach(b => b.classList.remove('active'));
   btn.classList.add('active');
-  if(level==='view'){MEMBERS[idx].perms={overview:true,team:false,projects:false,invoices:true,access:false};}
-  else if(level==='edit'){MEMBERS[idx].perms={overview:true,team:false,projects:true,invoices:true,access:false};}
-  else if(level==='full'){MEMBERS[idx].perms={overview:true,team:true,projects:true,invoices:true,access:false};}
-  renderAccessCards();
-  showToast(MEMBERS[idx].name+' — access level: '+level);
+  document.getElementById('filter-co').style.display = '';
+  showToast(`Switched to ${name}`);
+  if (STATE.activeSheet === 'overview') renderOverview();
+  else if (STATE.currentTabData.length) renderTable(STATE.currentTabData, STATE._currentTableKey);
 }
 
-/* ══════════ TOAST ══════════ */
-var _toastTimer;
-function showToast(msg){
-  var el=document.getElementById('toast');
-  el.textContent=msg; el.classList.add('show');
-  clearTimeout(_toastTimer);
-  _toastTimer=setTimeout(function(){el.classList.remove('show');},2800);
+// ═══════════════════════════════════════════════════
+//  LINK SHEET
+// ═══════════════════════════════════════════════════
+function linkSheet() {
+  const name = document.getElementById('new-sheet-name').value.trim();
+  const url = document.getElementById('new-sheet-url').value.trim();
+  const icon = document.getElementById('new-sheet-icon').value.trim() || '📋';
+  const err = document.getElementById('link-err');
+
+  if (!name) return (err.textContent = 'Sheet name is required');
+  if (!url || !url.includes('docs.google.com')) return (err.textContent = 'Please enter a valid Google Sheets URL');
+
+  const id = 'sh_' + Date.now();
+  STATE.sheets.push({ id, name, icon, url, tabs: [], data: {} });
+  saveState();
+  renderSidebar();
+  closeModal('link-modal');
+  document.getElementById('new-sheet-name').value = '';
+  document.getElementById('new-sheet-url').value = '';
+  err.textContent = '';
+  showToast(`Sheet "${name}" linked! Loading data...`);
+  const sh = STATE.sheets.find(s => s.id === id);
+  selectSheet(id);
+  fetchSheetData(sh);
 }
+
+// ═══════════════════════════════════════════════════
+//  COLUMN PICKER
+// ═══════════════════════════════════════════════════
+function renderColPicker() {
+  const container = document.getElementById('col-picker-list');
+  const key = STATE._currentTableKey;
+  const allCols = STATE._allCols || [];
+  const selected = STATE.visibleCols[key] || allCols;
+
+  if (!allCols.length) {
+    container.innerHTML = `<div style="color:var(--text2);font-size:13px">Open a sheet first to pick columns.</div>`;
+    return;
+  }
+
+  container.innerHTML = allCols.map(c => `
+    <label class="col-check ${selected.includes(c)?'selected':''}" onclick="toggleCol('${c}',this)">
+      <input type="checkbox" ${selected.includes(c)?'checked':''}>
+      ${c}
+    </label>
+  `).join('');
+}
+
+function toggleCol(col, el) {
+  el.classList.toggle('selected');
+}
+
+function applyColumns() {
+  const key = STATE._currentTableKey;
+  const allCols = STATE._allCols || [];
+  const selected = [];
+  document.querySelectorAll('#col-picker-list .col-check.selected').forEach(el => {
+    const col = el.textContent.trim();
+    if (allCols.includes(col)) selected.push(col);
+  });
+  if (!selected.length) return showToast('Select at least one column', 'error');
+  STATE.visibleCols[key] = selected;
+  saveState();
+  closeModal('col-modal');
+  renderTable(STATE.currentTabData, key);
+  showToast('Columns updated');
+}
+
+// ═══════════════════════════════════════════════════
+//  ADMIN — CHANGE PASSWORD
+// ═══════════════════════════════════════════════════
+function changePassword() {
+  const curr = document.getElementById('curr-pass').value;
+  const nw = document.getElementById('new-pass').value;
+  const cf = document.getElementById('conf-pass').value;
+  const err = document.getElementById('pass-err');
+
+  if (curr !== STATE.auth.password) return (err.textContent = 'Current password is incorrect');
+  if (nw.length < 6) return (err.textContent = 'New password must be at least 6 characters');
+  if (nw !== cf) return (err.textContent = 'Passwords do not match');
+
+  STATE.auth.password = nw;
+  saveState();
+  err.textContent = '';
+  document.getElementById('curr-pass').value = '';
+  document.getElementById('new-pass').value = '';
+  document.getElementById('conf-pass').value = '';
+  showToast('Password changed successfully');
+}
+
+function renderAdminSheets() {
+  const el = document.getElementById('admin-sheets-list');
+  if (!STATE.sheets.length) {
+    el.innerHTML = `<div style="color:var(--text3);font-size:13px">No sheets linked yet.</div>`;
+    return;
+  }
+  el.innerHTML = STATE.sheets.map(sh => `
+    <div class="team-row" style="margin-bottom:6px">
+      <span style="font-size:18px">${sh.icon}</span>
+      <div class="team-info">
+        <div class="team-name">${sh.name}</div>
+        <div class="team-role" style="font-size:10px;max-width:240px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${sh.url}</div>
+      </div>
+      <button class="btn btn-danger btn-xs" onclick="removeSheet('${sh.id}')">Remove</button>
+    </div>
+  `).join('');
+}
+
+function removeSheet(id) {
+  STATE.sheets = STATE.sheets.filter(s => s.id !== id);
+  saveState();
+  renderSidebar();
+  renderAdminSheets();
+  selectSheet('overview');
+  renderOverview();
+  showToast('Sheet removed');
+}
+
+// ═══════════════════════════════════════════════════
+//  TEAM MANAGEMENT
+// ═══════════════════════════════════════════════════
+function renderTeamModal() {
+  const container = document.getElementById('team-list-container');
+  document.getElementById('team-count').textContent = STATE.teams.length;
+  container.innerHTML = STATE.teams.map(m => `
+    <div class="team-row">
+      <div class="avatar">${m.name[0]}</div>
+      <div class="team-info">
+        <div class="team-name">${m.name}</div>
+        <div class="team-role">${m.email}</div>
+      </div>
+      <div class="team-access">
+        <span class="access-tag">${m.role}</span>
+        <span class="access-tag">${m.sheetAccess === 'all' ? 'All Sheets' : STATE.sheets.find(s=>s.id===m.sheetAccess)?.name || m.sheetAccess}</span>
+      </div>
+      ${STATE.currentUser?.role === 'super' ? `<button class="btn btn-danger btn-xs" onclick="removeMember('${m.id}')">✕</button>` : ''}
+    </div>
+  `).join('') || `<div style="color:var(--text3);font-size:13px">No team members yet.</div>`;
+}
+
+function addMember() {
+  const name = document.getElementById('new-member-name').value.trim();
+  const email = document.getElementById('new-member-email').value.trim();
+  const role = document.getElementById('new-member-role').value;
+  const sheetAccess = document.getElementById('new-member-sheet').value;
+
+  if (!name || !email) return showToast('Name and email are required', 'error');
+  if (STATE.teams.find(t => t.email === email)) return showToast('Member already exists', 'error');
+
+  STATE.teams.push({ id: 't' + Date.now(), name, email, role, sheetAccess });
+  saveState();
+  renderTeamModal();
+  document.getElementById('new-member-name').value = '';
+  document.getElementById('new-member-email').value = '';
+  showToast(`${name} added. Default pass: member123`);
+}
+
+function removeMember(id) {
+  STATE.teams = STATE.teams.filter(m => m.id !== id);
+  saveState();
+  renderTeamModal();
+  showToast('Member removed');
+}
+
+// ═══════════════════════════════════════════════════
+//  EXPORT & REFRESH
+// ═══════════════════════════════════════════════════
+function exportCSV() {
+  if (!STATE.currentTabData.length) return showToast('No data to export', 'error');
+  const key = STATE._currentTableKey;
+  const cols = STATE.visibleCols[key] || Object.keys(STATE.currentTabData[0]);
+  const rows = [cols.join(','), ...STATE.currentTabData.map(r => cols.map(c => `"${r[c]||''}"`).join(','))];
+  const blob = new Blob([rows.join('\n')], {type:'text/csv'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `paralleldots_export_${Date.now()}.csv`;
+  a.click();
+  showToast('CSV exported');
+}
+
+function refreshData() {
+  if (STATE.currentSheetObj) {
+    showToast('Refreshing...');
+    fetchSheetData(STATE.currentSheetObj);
+  } else {
+    renderOverview();
+    showToast('Overview refreshed');
+  }
+}
+
+// ═══════════════════════════════════════════════════
+//  INIT
+// ═══════════════════════════════════════════════════
+loadState();
+// Set filter-status-all active by default
+document.getElementById('filter-status-all').classList.add('active');
 </script>
 </body>
 </html>
