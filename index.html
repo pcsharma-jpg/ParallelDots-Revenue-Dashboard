@@ -34,20 +34,24 @@
     background: var(--surface);
     border-bottom: 1px solid var(--border);
     display: flex; align-items: center; justify-content: space-between;
-    padding: 0 20px; flex-shrink: 0; z-index: 100;
+    padding: 0 16px; flex-shrink: 0; z-index: 100; gap: 8px; overflow: hidden;
   }
-  .logo { display: flex; align-items: center; gap: 10px; }
-  .logo-dot { width: 28px; height: 28px; background: linear-gradient(135deg,#4f8ef7,#7c3aed); border-radius: 7px; display: grid; place-items: center; font-size: 14px; font-weight: 800; color: #fff; }
+  .logo { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+  .logo-dot { width: 28px; height: 28px; background: linear-gradient(135deg,#4f8ef7,#7c3aed); border-radius: 7px; display: grid; place-items: center; font-size: 14px; font-weight: 800; color: #fff; flex-shrink:0; }
   .logo-name { font-size: 15px; font-weight: 700; letter-spacing: -0.3px; }
   .logo-sub { font-size: 11px; color: var(--text2); margin-top: 1px; }
-  .topbar-right { display: flex; align-items: center; gap: 12px; }
+  .topbar-right { display: flex; align-items: center; gap: 8px; flex-shrink: 0; margin-left: auto; }
 
   /* Company switcher */
-  .company-btns { display: flex; gap: 6px; }
+  .company-btns {
+    display: flex; gap: 6px; max-width: 400px;
+    overflow-x: auto; scrollbar-width: none; flex-shrink: 1;
+  }
+  .company-btns::-webkit-scrollbar { display: none; }
   .co-btn {
-    padding: 5px 14px; border-radius: 20px; font-size: 12px; font-weight: 600; cursor: pointer;
+    padding: 5px 12px; border-radius: 20px; font-size: 12px; font-weight: 600; cursor: pointer;
     border: 1px solid var(--border); background: transparent; color: var(--text2);
-    transition: all .2s;
+    transition: all .2s; white-space: nowrap; flex-shrink: 0;
   }
   .co-btn.active { background: var(--accent); border-color: var(--accent); color: #fff; box-shadow: 0 0 14px rgba(79,142,247,.4); }
   .co-btn:hover:not(.active) { border-color: var(--accent); color: var(--accent); }
@@ -749,15 +753,17 @@ function showToast(msg, type='success') {
 function renderSidebar() {
   const list = document.getElementById('sheet-nav-list');
   let html = '';
+  const user = STATE.currentUser;
   STATE.sheets.forEach(sh => {
-    // access check
-    if (STATE.currentUser?.sheetAccess !== 'all' && STATE.currentUser?.sheetAccess !== sh.id) return;
+    // Super admin OR no restriction OR explicit access — show sheet
+    const hasAccess = !user || user.role === 'super' || user.sheetAccess === 'all' || user.sheetAccess === sh.id;
+    if (!hasAccess) return;
     html += `<div class="sheet-item" id="nav-${sh.id}" onclick="selectSheet('${sh.id}')">
-      <span class="sheet-icon">${sh.icon}</span> ${sh.name}
+      <span class="sheet-icon">${sh.icon}</span> <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${sh.name}</span>
       <span class="sheet-count">${sh.tabs?.length || 0}</span>
     </div>`;
   });
-  if (!html) html = `<div style="padding:10px 14px;font-size:12px;color:var(--text3)">No sheets linked yet</div>`;
+  if (!html) html = `<div style="padding:10px 14px;font-size:12px;color:var(--text3)">No sheets linked yet.<br><span style="color:var(--accent);cursor:pointer" onclick="openModal('link-modal')">+ Link a sheet</span></div>`;
   list.innerHTML = html;
 
   // Update team sheet select
@@ -771,26 +777,39 @@ function renderSidebar() {
 
 function selectSheet(id) {
   STATE.activeSheet = id;
-  STATE.sortCol = null; // reset sort on sheet change
+  STATE.sortCol = null;
   document.querySelectorAll('.sheet-item').forEach(el => el.classList.remove('active'));
-  const el = document.getElementById(`nav-${id}`);
-  if (el) el.classList.add('active');
+  const navEl = document.getElementById(`nav-${id}`);
+  if (navEl) navEl.classList.add('active');
 
   if (id === 'overview') {
     document.getElementById('page-title').textContent = 'Overview';
     showPage('overview');
     renderTabsFor(null);
     renderOverview();
+    return;
+  }
+
+  const sh = STATE.sheets.find(s => s.id === id);
+  if (!sh) return;
+  STATE.currentSheetObj = sh;
+  document.getElementById('page-title').textContent = sh.name || 'Sheet';
+  renderTabsFor(sh);
+  showPage('sheet');
+
+  // If we already have data cached — show immediately, no overview
+  if (sh.tabs && sh.tabs.length > 0 && sh.data && sh.data[sh.tabs[0]]) {
+    const firstTab = sh.tabs[0];
+    selectTab(firstTab, null, sh);
   } else {
-    const sh = STATE.sheets.find(s => s.id === id);
-    if (!sh) return;
-    STATE.currentSheetObj = sh;
-    // Only set sheet name — never any data value
-    document.getElementById('page-title').textContent = sh.name || 'Sheet';
-    renderTabsFor(sh);
-    showPage('sheet');
-    if (sh.tabs && sh.tabs.length > 0) selectTab(sh.tabs[0], null, sh);
-    else fetchSheetData(sh);
+    // Show loading state directly in sheet area — not overview
+    document.getElementById('page-sheet').innerHTML = `
+      <div class="empty-state">
+        <div class="icon">⏳</div>
+        <h3>Loading ${sh.name}...</h3>
+        <p>Fetching data securely via Apps Script</p>
+      </div>`;
+    fetchSheetData(sh);
   }
 }
 
@@ -1171,28 +1190,38 @@ function applyFilters() {
 //  COMPANY LOGIC — Auto-detect, Switch, Split View
 // ═══════════════════════════════════════════════════
 
-// Called after data loads — auto-detect company column & unique names
+// Auto-detect company column — strict rules to avoid false positives
 function detectCompanies(data) {
   if (!data || !data.length) return;
-  const cols = Object.keys(data[0]);
+  const cols      = Object.keys(data[0]);
   const totalRows = data.length;
 
-  // Step 1: Find by column name keywords
-  const companyCols = cols.filter(c =>
-    /company|client|organization|org|entity|vertical|business|brand|firm|account|group|unit|division|dept|department|segment/i.test(c)
+  // Columns that are definitely NOT company columns — skip these
+  const excludePattern = /name|title|^id|id$|email|phone|mobile|address|url|link|date|time|desc|notes|comment|remark|ref|number|code|key|signed|executed|agreement/i;
+
+  // Step 1: Exact match on company-type column names
+  const exactMatch = cols.find(c =>
+    /^(company|vertical|entity|org|organization|business unit|division|segment|brand|account type|client type|category)$/i.test(c.trim())
   );
+  let bestCol = exactMatch || null;
 
-  let bestCol = companyCols[0] || null;
+  // Step 2: Partial match — but only if not excluded
+  if (!bestCol) {
+    bestCol = cols.find(c =>
+      !excludePattern.test(c) &&
+      /vertical|entity|division|segment|brand|category/i.test(c)
+    ) || null;
+  }
 
-  // Step 2: If not found by name — find column with 2-10 unique values AND low cardinality ratio
+  // Step 3: Low cardinality fallback — ONLY if column is clearly not a name/id
   if (!bestCol) {
     let bestScore = Infinity;
     for (const col of cols) {
+      if (excludePattern.test(col)) continue;
       const vals   = data.map(r => r[col]).filter(v => v && String(v).trim());
       const unique = [...new Set(vals)];
-      const ratio  = unique.length / Math.max(totalRows, 1);
-      // Good company col: 2-10 unique values, low ratio (repeated values)
-      if (unique.length >= 2 && unique.length <= 10 && ratio < 0.5) {
+      // Strict: only 2-5 unique values, and at least 20% rows filled
+      if (unique.length >= 2 && unique.length <= 5 && vals.length >= totalRows * 0.2) {
         if (unique.length < bestScore) {
           bestScore = unique.length;
           bestCol   = col;
@@ -1201,12 +1230,11 @@ function detectCompanies(data) {
     }
   }
 
-  if (!bestCol) {
-    // Show manual set button so user can pick
-    const btn = document.getElementById('set-co-col-btn');
-    if (btn) btn.style.display = '';
-    return;
-  }
+  // Show manual picker button always — even if auto-detected, user can override
+  const btn = document.getElementById('set-co-col-btn');
+  if (btn) btn.style.display = '';
+
+  if (!bestCol) return;
 
   const names = [...new Set(data.map(r => r[bestCol]).filter(v => v && String(v).trim()))].sort();
   if (names.length < 2) return;
@@ -1215,10 +1243,10 @@ function detectCompanies(data) {
   STATE.companies.names = names;
   saveState();
   renderCompanyButtons();
-  showToast(`🏢 Companies detected: ${names.join(', ')} (column: "${bestCol}")`);
+  showToast(`🏢 Company column detected: "${bestCol}"`);
 }
 
-// Render dynamic company buttons in topbar
+
 function renderCompanyButtons() {
   const container = document.getElementById('company-btns');
   const splitBtn  = document.getElementById('split-btn');
