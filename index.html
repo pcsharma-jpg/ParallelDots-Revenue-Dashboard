@@ -153,10 +153,8 @@
   .tab-add:hover { color: var(--accent); }
 
   /* ── DATA AREA ── */
-  #data-area { flex: 1; overflow-y: auto; padding: 16px 20px; }
-  #data-area::-webkit-scrollbar { width: 6px; }
-  #data-area::-webkit-scrollbar-track { background: transparent; }
-  #data-area::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+  #data-area { flex: 1; overflow: hidden; padding: 16px 20px; display: flex; flex-direction: column; min-height: 0; }
+  #data-area::-webkit-scrollbar { display: none; }
 
   /* ── OVERVIEW CARDS ── */
   .overview-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px,1fr)); gap: 12px; margin-bottom: 20px; }
@@ -174,13 +172,13 @@
   .kpi-bar-fill { height: 100%; border-radius: 2px; background: linear-gradient(90deg,#4f8ef7,#7c3aed); }
 
   /* ── DATA TABLE ── */
-  .table-wrap { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; }
-  .table-scroll { overflow-x: auto; width: 100%; }
-  .table-scroll::-webkit-scrollbar { height: 6px; }
+  .table-wrap { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; display: flex; flex-direction: column; flex: 1; min-height: 0; }
+  .table-scroll { overflow-x: auto; overflow-y: auto; width: 100%; flex: 1; min-height: 0; }
+  .table-scroll::-webkit-scrollbar { height: 6px; width: 6px; }
   .table-scroll::-webkit-scrollbar-track { background: transparent; }
   .table-scroll::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
   table { width: max-content; min-width: 100%; border-collapse: collapse; font-size: 13px; }
-  thead { background: var(--surface2); }
+  thead { background: var(--surface2); position: sticky; top: 0; z-index: 10; }
   th {
     padding: 11px 14px; text-align: left; font-size: 11px; font-weight: 700; color: var(--text2);
     text-transform: uppercase; letter-spacing: .5px; cursor: pointer; white-space: nowrap;
@@ -200,7 +198,7 @@
   .status-pill.closed { background: rgba(239,68,68,.15); color: var(--red); }
   .status-dot { width: 5px; height: 5px; border-radius: 50%; background: currentColor; }
   .amt { font-weight: 700; font-variant-numeric: tabular-nums; }
-  .pagination { display: flex; align-items: center; justify-content: space-between; padding: 12px 14px; border-top: 1px solid var(--border); font-size: 12px; color: var(--text2); }
+  .pagination { display: flex; align-items: center; justify-content: space-between; padding: 12px 14px; border-top: 1px solid var(--border); font-size: 12px; color: var(--text2); flex-shrink: 0; position: sticky; bottom: 0; background: var(--surface); z-index: 10; }
   .page-btns { display: flex; gap: 4px; }
   .page-btn { padding: 4px 10px; border-radius: 6px; background: var(--surface2); border: 1px solid var(--border); color: var(--text2); cursor: pointer; font-size: 12px; }
   .page-btn:hover:not(:disabled):not(.active), .page-btn.active { background: var(--accent); border-color: var(--accent); color: #fff; }
@@ -452,8 +450,8 @@
       </div>
     </div>
     <div id="data-area">
-      <div id="page-overview"></div>
-      <div id="page-sheet" style="display:none"></div>
+      <div id="page-overview" style="flex:1;overflow-y:auto;min-height:0"></div>
+      <div id="page-sheet" style="display:none;flex:1;min-height:0;flex-direction:column"></div>
     </div>
   </div>
 </div>
@@ -850,8 +848,10 @@ function selectTab(tabName, el, sheetObj) {
 //  PAGES
 // ═══════════════════════════════════════════════════
 function showPage(name) {
-  document.getElementById('page-overview').style.display = name === 'overview' ? '' : 'none';
-  document.getElementById('page-sheet').style.display = name === 'sheet' ? '' : 'none';
+  const ov = document.getElementById('page-overview');
+  const sh = document.getElementById('page-sheet');
+  ov.style.display = name === 'overview' ? 'block' : 'none';
+  sh.style.display = name === 'sheet'    ? 'flex'  : 'none';
 }
 
 // ═══════════════════════════════════════════════════
@@ -1278,16 +1278,18 @@ function formatCell(col, val, row) {
   // Amount / currency columns
   if (lc.includes('amount') || lc.includes('value') || lc.includes('revenue') ||
       lc.includes('price')  || lc.includes('salary') || lc.includes('cost') ||
-      lc.includes('fee')    || lc.includes('billing') || lc.includes('invoice') ||
+      lc.includes('fee')    || lc.includes('billing') ||
       lc.includes('total')  || lc.includes('usd')    || lc.includes('inr')) {
 
     const num = parseFloat(v.replace(/[^0-9.-]/g, ''));
+    // Helper — format number max 2 decimal places
+    const fmt = (n, locale) => Number(n.toFixed(2)).toLocaleString(locale, {maximumFractionDigits:2});
 
     // Priority 1 — Value itself has symbol already
     const symColors = { '$':'#22c55e', '₹':'var(--text)', '€':'#f59e0b', '£':'#a78bfa', 'S$':'#38bdf8' };
     for (const [sym, color] of Object.entries(symColors)) {
       if (v.startsWith(sym)) {
-        const formatted = isNaN(num) ? v : `${sym}${sym==='₹' ? Number(num).toLocaleString('en-IN') : Number(num).toLocaleString('en-US')}`;
+        const formatted = isNaN(num) ? v : `${sym}${sym==='₹' ? fmt(num,'en-IN') : fmt(num,'en-US')}`;
         return `<span class="amt" style="color:${color}">${formatted}</span>`;
       }
     }
@@ -1295,15 +1297,15 @@ function formatCell(col, val, row) {
     if (!isNaN(num)) {
       // Priority 2 — Column name has explicit currency
       if (lc.includes('usd') || lc.includes('dollar') || lc.includes('($)'))
-        return `<span class="amt" style="color:#22c55e">$${Number(num).toLocaleString('en-US')}</span>`;
+        return `<span class="amt" style="color:#22c55e">$${fmt(num,'en-US')}</span>`;
       if (lc.includes('inr') || lc.includes('rupee') || lc.includes('(₹)'))
-        return `<span class="amt">₹${Number(num).toLocaleString('en-IN')}</span>`;
+        return `<span class="amt">₹${fmt(num,'en-IN')}</span>`;
       if (lc.includes('eur') || lc.includes('euro'))
-        return `<span class="amt" style="color:#f59e0b">€${Number(num).toLocaleString('en-US')}</span>`;
+        return `<span class="amt" style="color:#f59e0b">€${fmt(num,'en-US')}</span>`;
       if (lc.includes('gbp') || lc.includes('pound'))
-        return `<span class="amt" style="color:#a78bfa">£${Number(num).toLocaleString('en-US')}</span>`;
+        return `<span class="amt" style="color:#a78bfa">£${fmt(num,'en-US')}</span>`;
       if (lc.includes('sgd'))
-        return `<span class="amt" style="color:#38bdf8">S$${Number(num).toLocaleString('en-US')}</span>`;
+        return `<span class="amt" style="color:#38bdf8">S$${fmt(num,'en-US')}</span>`;
 
       // Priority 3 — Auto-detected per company from sheet data
       const coCol  = STATE.companies.col;
@@ -1319,16 +1321,24 @@ function formatCell(col, val, row) {
       };
       if (curr && fmtMap[curr]) {
         const f = fmtMap[curr];
-        return `<span class="amt" style="color:${f.color}">${f.sym}${Number(num).toLocaleString(f.locale)}</span>`;
+        return `<span class="amt" style="color:${f.color}">${f.sym}${fmt(num, f.locale)}</span>`;
       }
 
-      // Fallback — plain number, no symbol
-      return `<span class="amt">${Number(num).toLocaleString('en-IN')}</span>`;
+      // Fallback — plain number, max 2 decimals
+      return `<span class="amt">${fmt(num,'en-IN')}</span>`;
     }
   }
 
   // Long text — truncate with tooltip
   if (v.length > 40) return `<span title="${v.replace(/"/g,'&quot;')}">${v.slice(0,38)}…</span>`;
+
+  // Any plain number with more than 2 decimals — cap at 2
+  const anyNum = parseFloat(v);
+  if (!isNaN(anyNum) && String(anyNum) === v && v.includes('.')) {
+    const decimals = v.split('.')[1]?.length || 0;
+    if (decimals > 2) return `<span style="font-variant-numeric:tabular-nums">${anyNum.toFixed(2)}</span>`;
+  }
+
   return v;
 }
 
