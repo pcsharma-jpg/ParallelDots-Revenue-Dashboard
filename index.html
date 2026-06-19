@@ -996,7 +996,10 @@ async function fetchSheetData(sh) {
   }
 
   try {
-    const apiUrl = `${API_CONFIG.url}?action=getData&token=${encodeURIComponent(API_CONFIG.token)}&sheetId=${sh.id}`;
+    const apiUrl = `${API_CONFIG.url}?action=getData&token=${encodeURIComponent(API_CONFIG.token)}`
+      + `&sheetId=${encodeURIComponent(sh.sheetId)}`
+      + `&gid=${encodeURIComponent(sh.gid || '0')}`
+      + `&name=${encodeURIComponent(sh.name)}`;
     const res  = await fetch(apiUrl);
     const json = await res.json();
 
@@ -1389,35 +1392,36 @@ async function linkSheet() {
   if (!name)    return (errEl.textContent = 'Please enter a display name for this sheet');
   if (!sheetId) return (errEl.textContent = 'Please enter the Google Sheet ID');
 
-  errEl.textContent = '⏳ Registering sheet...';
+  errEl.textContent = '⏳ Adding sheet...';
 
   const id = 'sh_' + Date.now();
+
+  // Try to register in Apps Script config (non-blocking — even if it fails, data can still load)
   try {
-    // Register sheet in Apps Script config
     const apiUrl = `${API_CONFIG.url}?action=addSheet&token=${encodeURIComponent(API_CONFIG.token)}`
       + `&id=${id}&name=${encodeURIComponent(name)}&icon=${encodeURIComponent(icon)}`
       + `&sheetId=${encodeURIComponent(sheetId)}&gid=${encodeURIComponent(gid)}`;
     const res  = await fetch(apiUrl);
     const json = await res.json();
-    if (!json.success) throw new Error(json.error || 'Registration failed');
-
-    // Also add to local state
-    STATE.sheets.push({ id, name, icon, sheetId, gid, tabs: [], data: {} });
-    saveState();
-    renderSidebar();
-    closeModal('link-modal');
-    document.getElementById('new-sheet-name').value = '';
-    document.getElementById('new-sheet-id').value   = '';
-    document.getElementById('new-sheet-gid').value  = '0';
-    errEl.textContent = '';
-    showToast(`✅ "${name}" added! Data loading...`);
-    const sh = STATE.sheets.find(s => s.id === id);
-    selectSheet(id);
-    fetchSheetData(sh);
-
-  } catch(err) {
-    errEl.textContent = '❌ ' + err.message;
+    // Log but don't block — data fetch works independently of registry
+    if (!json.success) console.warn('Registry warning:', json.error);
+  } catch(e) {
+    console.warn('Registry unreachable:', e.message);
   }
+
+  // Always add to local state and fetch data
+  STATE.sheets.push({ id, name, icon, sheetId, gid, tabs: [], data: {} });
+  saveState();
+  renderSidebar();
+  closeModal('link-modal');
+  document.getElementById('new-sheet-name').value = '';
+  document.getElementById('new-sheet-id').value   = '';
+  document.getElementById('new-sheet-gid').value  = '0';
+  errEl.textContent = '';
+  showToast(`✅ "${name}" added! Loading data...`);
+  const sh = STATE.sheets.find(s => s.id === id);
+  selectSheet(id);
+  fetchSheetData(sh);
 }
 
 // ── On startup: sync sheet list from server ──
