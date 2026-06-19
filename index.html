@@ -203,7 +203,8 @@
   .pagination { display: flex; align-items: center; justify-content: space-between; padding: 12px 14px; border-top: 1px solid var(--border); font-size: 12px; color: var(--text2); }
   .page-btns { display: flex; gap: 4px; }
   .page-btn { padding: 4px 10px; border-radius: 6px; background: var(--surface2); border: 1px solid var(--border); color: var(--text2); cursor: pointer; font-size: 12px; }
-  .page-btn:hover, .page-btn.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .page-btn:hover:not(:disabled):not(.active), .page-btn.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .page-btn:disabled { opacity: 0.3; cursor: not-allowed; }
 
   /* ── MODALS ── */
   .overlay {
@@ -610,17 +611,17 @@
 
 <!-- Company Column Modal -->
 <div class="overlay" id="co-col-modal">
-  <div class="modal" style="width:460px">
-    <div class="modal-title"><span class="icon">🏢</span> Company Column Setup</div>
+  <div class="modal" style="width:480px">
+    <div class="modal-title"><span class="icon">🏢</span> Company & Currency Setup</div>
     <p style="font-size:13px;color:var(--text2);margin-bottom:16px">
-      Select the column in your sheet that contains the company name.
-      The dashboard will automatically split data by company.
+      Select the column that identifies each company, then set the currency for each company.
     </p>
     <div class="form-group">
-      <label>Company Column Name</label>
-      <select id="co-col-select" style="width:100%"></select>
+      <label>Company Column</label>
+      <select id="co-col-select" style="width:100%" onchange="updateCoPreview(STATE.currentTabData)"></select>
     </div>
-    <div style="margin-top:8px;margin-bottom:16px" id="co-names-preview"></div>
+    <div id="co-names-preview"></div>
+    <div id="co-currency-map" style="margin-top:12px"></div>
     <div class="error-msg" id="co-col-err"></div>
     <div class="btn-row">
       <button class="btn btn-ghost" onclick="closeModal('co-col-modal')">Cancel</button>
@@ -646,7 +647,7 @@ const STATE = {
   auth: { password: 'admin123', user: { name:'Admin', email:'admin@paralleldots.com', role:'super' } },
   currentUser: null,
   // Company config — names & column name auto-detected from data
-  companies: { col: '', names: [], active: 'all' }, // active: 'all' | company name
+  companies: { col: '', names: [], active: 'all', currencyMap: {} }, // currencyMap: {companyName: 'USD'|'INR'|...}
   viewMode: 'single', // 'single' | 'split'
   activeSheet: 'overview',
   activeTab: 'overview',
@@ -1046,6 +1047,8 @@ async function fetchSheetData(sh) {
 
     // Auto-detect company column from fresh data
     detectCompanies(dataRows);
+    // Auto-detect currency from sheet data
+    detectCurrencyFromData(dataRows);
 
     renderTable(dataRows, sh.id + '_' + tabName);
     showToast(`✅ ${dataRows.length} rows loaded securely from ${sh.name}`);
@@ -1106,9 +1109,28 @@ function renderTable(data, key) {
     });
   }
 
-  const PAGE = 50;
-  const page = 0;
-  const paged = filtered.slice(0, PAGE);
+  const PAGE     = 100;
+  const currPage = STATE._currentPage || 0;
+  const totalPages = Math.ceil(filtered.length / PAGE);
+  const paged    = filtered.slice(currPage * PAGE, (currPage + 1) * PAGE);
+
+  // Detect currency for this sheet based on company column
+  STATE._filteredData = filtered;
+  STATE._pageSize     = PAGE;
+
+  // Build page buttons — show max 7 page numbers
+  let pageHtml = '';
+  if (totalPages > 1) {
+    pageHtml += `<button class="page-btn" onclick="goPage(${currPage-1})" ${currPage===0?'disabled':''}>‹</button>`;
+    let start = Math.max(0, currPage - 3);
+    let end   = Math.min(totalPages - 1, start + 6);
+    if (end - start < 6) start = Math.max(0, end - 6);
+    for (let i = start; i <= end; i++) {
+      pageHtml += `<button class="page-btn ${i===currPage?'active':''}" onclick="goPage(${i})">${i+1}</button>`;
+    }
+    pageHtml += `<button class="page-btn" onclick="goPage(${currPage+1})" ${currPage>=totalPages-1?'disabled':''}>›</button>`;
+    pageHtml += `<span style="font-size:11px;color:var(--text3);margin-left:4px">of ${totalPages} pages</span>`;
+  }
 
   el.innerHTML = `
     <div class="table-wrap">
@@ -1118,16 +1140,13 @@ function renderTable(data, key) {
             ${cols.map(c => `<th onclick="sortBy('${c}')">${c} <span class="sort-icon">${STATE.sortCol===c ? (STATE.sortDir===1?'↑':'↓') : '↕'}</span></th>`).join('')}
           </tr></thead>
           <tbody>
-            ${paged.map(row => `<tr>${cols.map(c => `<td>${formatCell(c, row[c])}</td>`).join('')}</tr>`).join('')}
+            ${paged.map(row => `<tr>${cols.map(c => `<td>${formatCell(c, row[c], row)}</td>`).join('')}</tr>`).join('')}
           </tbody>
         </table>
       </div>
       <div class="pagination">
-        <span>Showing ${paged.length} of ${filtered.length} records (${data.length} total)</span>
-        <div class="page-btns">
-          <button class="page-btn active">1</button>
-          ${filtered.length > PAGE ? `<button class="page-btn">2</button>` : ''}
-        </div>
+        <span>Showing ${currPage*PAGE+1}–${Math.min((currPage+1)*PAGE, filtered.length)} of <strong>${filtered.length}</strong> records (${data.length} total)</span>
+        <div class="page-btns">${pageHtml}</div>
       </div>
     </div>
   `;
@@ -1142,23 +1161,163 @@ function renderTable(data, key) {
   }
 }
 
-function formatCell(col, val) {
-  // Only show dash for truly empty values — NOT for 0, false, etc.
+function goPage(n) {
+  const total = Math.ceil((STATE._filteredData?.length || 0) / (STATE._pageSize || 100));
+  if (n < 0 || n >= total) return;
+  STATE._currentPage = n;
+  renderTable(STATE.currentTabData, STATE._currentTableKey);
+  // Scroll table to top
+  const da = document.getElementById('data-area');
+  if (da) da.scrollTop = 0;
+}
+
+// ═══════════════════════════════════════════════════
+//  SMART CURRENCY AUTO-DETECT FROM SHEET DATA
+// ═══════════════════════════════════════════════════
+function detectCurrencyFromData(data) {
+  if (!data || !data.length) return;
+  const cols = Object.keys(data[0]);
+
+  // Step 1 — Find a dedicated "Currency" column in the sheet
+  const currencyCol = cols.find(c =>
+    /^currency$|^curr$|^cur$|^currency type$|^invoice currency$|^billing currency$/i.test(c.trim())
+  );
+
+  const symbolMap = { '$':'USD', '₹':'INR', '€':'EUR', '£':'GBP', 'usd':'USD', 'inr':'INR',
+                      'eur':'EUR', 'gbp':'GBP', 'sgd':'SGD', 's$':'SGD', 'dollar':'USD',
+                      'rupee':'INR', 'rupees':'INR', 'euro':'EUR', 'pound':'GBP' };
+
+  const coCol = STATE.companies.col;
+  const currencyMap = { ...( STATE.companies.currencyMap || {} ) };
+
+  if (currencyCol) {
+    // Best case — dedicated currency column exists, read per row
+    data.forEach(row => {
+      const rawCurr = String(row[currencyCol] || '').trim().toLowerCase();
+      const detected = symbolMap[rawCurr] || null;
+      if (detected && coCol && row[coCol]) {
+        const company = row[coCol];
+        // Only set if not already set, or all rows agree
+        if (!currencyMap[company]) currencyMap[company] = detected;
+      }
+    });
+  } else {
+    // Step 2 — Scan amount column values for currency symbols
+    const amountCols = cols.filter(c =>
+      /amount|value|revenue|price|cost|salary|fee|billing|invoice|total/i.test(c)
+    );
+
+    amountCols.forEach(amtCol => {
+      data.forEach(row => {
+        const v = String(row[amtCol] || '').trim();
+        let detected = null;
+        if (v.startsWith('$'))       detected = 'USD';
+        else if (v.startsWith('₹'))  detected = 'INR';
+        else if (v.startsWith('€'))  detected = 'EUR';
+        else if (v.startsWith('£'))  detected = 'GBP';
+        else if (v.startsWith('S$')) detected = 'SGD';
+
+        if (detected && coCol && row[coCol]) {
+          const company = row[coCol];
+          if (!currencyMap[company]) currencyMap[company] = detected;
+        }
+      });
+    });
+
+    // Step 3 — Check if column NAME itself has currency hint (e.g. "Amount (USD)")
+    amountCols.forEach(amtCol => {
+      const lc = amtCol.toLowerCase();
+      let colCurr = null;
+      if (lc.includes('usd') || lc.includes('dollar') || lc.includes('$')) colCurr = 'USD';
+      else if (lc.includes('inr') || lc.includes('rupee') || lc.includes('₹')) colCurr = 'INR';
+      else if (lc.includes('eur') || lc.includes('euro')) colCurr = 'EUR';
+      else if (lc.includes('gbp') || lc.includes('pound')) colCurr = 'GBP';
+      else if (lc.includes('sgd')) colCurr = 'SGD';
+
+      if (colCurr && coCol) {
+        // Apply to all companies that don't have a currency yet
+        const companies = [...new Set(data.map(r => r[coCol]).filter(Boolean))];
+        companies.forEach(c => { if (!currencyMap[c]) currencyMap[c] = colCurr; });
+      }
+    });
+  }
+
+  // Save detected map
+  if (Object.keys(currencyMap).length > 0) {
+    STATE.companies.currencyMap = currencyMap;
+    saveState();
+    // Log what was detected
+    const summary = Object.entries(currencyMap).map(([c,v]) => `${c}: ${v}`).join(' | ');
+    console.log('Currency detected:', summary);
+  }
+}
+
+function formatCell(col, val, row) {
   if (val === null || val === undefined || val === '') return `<span style="color:var(--text3)">—</span>`;
   const v  = String(val);
   if (!v.trim()) return `<span style="color:var(--text3)">—</span>`;
   const lc = col.toLowerCase();
 
   // Status pill
-  if (lc.includes('status')) {
-    const cls = v.toLowerCase().includes('active') ? 'active' : v.toLowerCase().includes('pending') ? 'pending' : 'closed';
+  if (lc.includes('status') || lc.includes('collection') || lc.includes('payment')) {
+    const vl  = v.toLowerCase();
+    const cls = vl.includes('collect') || vl.includes('paid') || vl.includes('active') ? 'active'
+              : vl.includes('pending') || vl.includes('partial') ? 'pending' : 'closed';
     return `<span class="status-pill ${cls}"><span class="status-dot"></span>${v}</span>`;
   }
-  // Amount / currency
-  if (lc.includes('amount') || lc.includes('value') || lc.includes('revenue') || lc.includes('price') || lc.includes('salary') || lc.includes('cost')) {
-    const num = parseFloat(v.replace(/[^0-9.-]/g,''));
-    if (!isNaN(num)) return `<span class="amt">${v.startsWith('₹')||v.startsWith('$') ? v : '₹'+Number(num).toLocaleString('en-IN')}</span>`;
+
+  // Amount / currency columns
+  if (lc.includes('amount') || lc.includes('value') || lc.includes('revenue') ||
+      lc.includes('price')  || lc.includes('salary') || lc.includes('cost') ||
+      lc.includes('fee')    || lc.includes('billing') || lc.includes('invoice') ||
+      lc.includes('total')  || lc.includes('usd')    || lc.includes('inr')) {
+
+    const num = parseFloat(v.replace(/[^0-9.-]/g, ''));
+
+    // Priority 1 — Value itself has symbol already
+    const symColors = { '$':'#22c55e', '₹':'var(--text)', '€':'#f59e0b', '£':'#a78bfa', 'S$':'#38bdf8' };
+    for (const [sym, color] of Object.entries(symColors)) {
+      if (v.startsWith(sym)) {
+        const formatted = isNaN(num) ? v : `${sym}${sym==='₹' ? Number(num).toLocaleString('en-IN') : Number(num).toLocaleString('en-US')}`;
+        return `<span class="amt" style="color:${color}">${formatted}</span>`;
+      }
+    }
+
+    if (!isNaN(num)) {
+      // Priority 2 — Column name has explicit currency
+      if (lc.includes('usd') || lc.includes('dollar') || lc.includes('($)'))
+        return `<span class="amt" style="color:#22c55e">$${Number(num).toLocaleString('en-US')}</span>`;
+      if (lc.includes('inr') || lc.includes('rupee') || lc.includes('(₹)'))
+        return `<span class="amt">₹${Number(num).toLocaleString('en-IN')}</span>`;
+      if (lc.includes('eur') || lc.includes('euro'))
+        return `<span class="amt" style="color:#f59e0b">€${Number(num).toLocaleString('en-US')}</span>`;
+      if (lc.includes('gbp') || lc.includes('pound'))
+        return `<span class="amt" style="color:#a78bfa">£${Number(num).toLocaleString('en-US')}</span>`;
+      if (lc.includes('sgd'))
+        return `<span class="amt" style="color:#38bdf8">S$${Number(num).toLocaleString('en-US')}</span>`;
+
+      // Priority 3 — Auto-detected per company from sheet data
+      const coCol  = STATE.companies.col;
+      const coName = row && coCol ? (row[coCol] || '') : '';
+      const curr   = STATE.companies.currencyMap?.[coName];
+
+      const fmtMap = {
+        INR: { sym:'₹',  color:'var(--text)',  locale:'en-IN' },
+        USD: { sym:'$',  color:'#22c55e',      locale:'en-US' },
+        EUR: { sym:'€',  color:'#f59e0b',      locale:'en-US' },
+        GBP: { sym:'£',  color:'#a78bfa',      locale:'en-US' },
+        SGD: { sym:'S$', color:'#38bdf8',      locale:'en-US' },
+      };
+      if (curr && fmtMap[curr]) {
+        const f = fmtMap[curr];
+        return `<span class="amt" style="color:${f.color}">${f.sym}${Number(num).toLocaleString(f.locale)}</span>`;
+      }
+
+      // Fallback — plain number, no symbol
+      return `<span class="amt">${Number(num).toLocaleString('en-IN')}</span>`;
+    }
   }
+
   // Long text — truncate with tooltip
   if (v.length > 40) return `<span title="${v.replace(/"/g,'&quot;')}">${v.slice(0,38)}…</span>`;
   return v;
@@ -1167,6 +1326,7 @@ function formatCell(col, val) {
 function sortBy(col) {
   if (STATE.sortCol === col) STATE.sortDir *= -1;
   else { STATE.sortCol = col; STATE.sortDir = 1; }
+  STATE._currentPage = 0;
   if (STATE.currentTabData.length) renderTable(STATE.currentTabData, STATE._currentTableKey);
 }
 
@@ -1175,6 +1335,7 @@ function sortBy(col) {
 // ═══════════════════════════════════════════════════
 function setFilter(type, val, el) {
   STATE.filters[type] = val;
+  STATE._currentPage  = 0;
   document.querySelectorAll('.filter-chip').forEach(c => c.classList.remove('active'));
   if (el) el.classList.add('active');
   if (STATE.currentTabData.length) renderTable(STATE.currentTabData, STATE._currentTableKey);
@@ -1182,6 +1343,7 @@ function setFilter(type, val, el) {
 
 function applyFilters() {
   STATE.filters.search = document.getElementById('search-input').value;
+  STATE._currentPage   = 0;
   if (STATE.currentTabData.length) renderTable(STATE.currentTabData, STATE._currentTableKey);
 }
 
@@ -1368,10 +1530,10 @@ function openModal(id) {
 function renderCoColModal() {
   const data = STATE.currentTabData;
   const sel  = document.getElementById('co-col-select');
-  const prev = document.getElementById('co-names-preview');
 
   if (!data.length) {
     sel.innerHTML = `<option>No data loaded — open a sheet first</option>`;
+    document.getElementById('co-currency-map').innerHTML = '';
     return;
   }
 
@@ -1380,18 +1542,35 @@ function renderCoColModal() {
     `<option value="${c}" ${c === STATE.companies.col ? 'selected' : ''}>${c}</option>`
   ).join('');
 
-  sel.onchange = () => updateCoPreview(data);
   updateCoPreview(data);
 }
 
 function updateCoPreview(data) {
+  if (!data || !data.length) return;
   const col   = document.getElementById('co-col-select').value;
   const names = [...new Set(data.map(r => r[col]).filter(v => v && v.trim()))].sort();
-  const colors= ['var(--accent)','var(--accent2)','var(--green)','var(--yellow)'];
+  const existingMap = STATE.companies.currencyMap || {};
+
   document.getElementById('co-names-preview').innerHTML =
-    `<div style="font-size:12px;color:var(--text2);margin-bottom:6px">Detected companies in "<strong>${col}</strong>":</div>
-     <div style="display:flex;flex-wrap:wrap;gap:6px">
-       ${names.map((n,i) => `<span class="access-tag" style="background:rgba(79,142,247,.15);color:${colors[i%colors.length]}">${n}</span>`).join('')}
+    `<div style="font-size:12px;color:var(--text2);margin-bottom:8px">
+       Found <strong>${names.length}</strong> companies in column "<strong>${col}</strong>"
+     </div>`;
+
+  document.getElementById('co-currency-map').innerHTML =
+    `<div style="font-size:12px;font-weight:700;color:var(--text2);margin-bottom:8px">Set Currency per Company:</div>
+     <div style="display:flex;flex-direction:column;gap:8px">
+       ${names.map(name => `
+         <div style="display:flex;align-items:center;gap:10px;padding:8px 12px;background:var(--surface2);border-radius:8px;border:1px solid var(--border)">
+           <span style="flex:1;font-size:13px;font-weight:600">${name}</span>
+           <select id="curr-${btoa(name).replace(/=/g,'')}" style="width:120px;padding:5px 8px;border-radius:6px;background:var(--surface3);border:1px solid var(--border);color:var(--text);font-size:12px">
+             <option value="" ${!existingMap[name]?'selected':''}>— Not set —</option>
+             <option value="INR" ${existingMap[name]==='INR'?'selected':''}>₹ INR (Rupee)</option>
+             <option value="USD" ${existingMap[name]==='USD'?'selected':''}>$ USD (Dollar)</option>
+             <option value="EUR" ${existingMap[name]==='EUR'?'selected':''}>€ EUR (Euro)</option>
+             <option value="GBP" ${existingMap[name]==='GBP'?'selected':''}>£ GBP (Pound)</option>
+             <option value="SGD" ${existingMap[name]==='SGD'?'selected':''}>S$ SGD</option>
+           </select>
+         </div>`).join('')}
      </div>`;
 }
 
@@ -1401,18 +1580,29 @@ function applyCompanyColumn() {
   if (!col || !data.length) return;
 
   const names = [...new Set(data.map(r => r[col]).filter(v => v && v.trim()))].sort();
-  if (names.length < 2) {
-    document.getElementById('co-col-err').textContent = 'This column has less than 2 unique values.';
+  if (names.length < 1) {
+    document.getElementById('co-col-err').textContent = 'No values found in this column.';
     return;
   }
 
-  STATE.companies.col   = col;
-  STATE.companies.names = names;
-  STATE.companies.active = 'all';
+  // Collect currency map from selects
+  const currencyMap = {};
+  names.forEach(name => {
+    const selId = 'curr-' + btoa(name).replace(/=/g,'');
+    const sel   = document.getElementById(selId);
+    if (sel && sel.value) currencyMap[name] = sel.value;
+  });
+
+  STATE.companies.col         = col;
+  STATE.companies.names       = names;
+  STATE.companies.active      = 'all';
+  STATE.companies.currencyMap = currencyMap;
   saveState();
   closeModal('co-col-modal');
   renderCompanyButtons();
-  showToast(`Company column set to "${col}" — ${names.length} companies detected`);
+  STATE._currentPage = 0;
+  if (STATE.currentTabData.length) renderTable(STATE.currentTabData, STATE._currentTableKey);
+  showToast(`✅ Company column set — currencies saved`);
 }
 
 function exportSplitCSV(pane) {
