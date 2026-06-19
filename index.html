@@ -834,7 +834,8 @@ function renderTabsFor(sheetObj) {
 
 function selectTab(tabName, el, sheetObj) {
   const sh = sheetObj || STATE.currentSheetObj;
-  STATE.activeTab = tabName;
+  STATE.activeTab    = tabName;
+  STATE._currentPage = 0;
   document.querySelectorAll('#tab-bar .tab').forEach(t => t.classList.remove('active'));
   const tel = el || document.getElementById(`tab-${tabName}`);
   if (tel) tel.classList.add('active');
@@ -1044,14 +1045,8 @@ async function fetchSheetData(sh) {
     saveState();
     renderSidebar();
     renderTabsFor(sh);
-
-    // Auto-detect company column from fresh data
-    detectCompanies(dataRows);
-    // Auto-detect currency from sheet data
-    detectCurrencyFromData(dataRows);
-
     renderTable(dataRows, sh.id + '_' + tabName);
-    showToast(`✅ ${dataRows.length} rows loaded securely from ${sh.name}`);
+    showToast(`✅ ${dataRows.length} rows loaded from ${sh.name}`);
 
   } catch(err) {
     el.innerHTML = `<div class="empty-state">
@@ -1078,15 +1073,29 @@ function renderTable(data, key) {
   }
 
   const allCols = Object.keys(data[0]);
-  if (!STATE.visibleCols[key]) STATE.visibleCols[key] = allCols;
+
+  // Re-detect companies + currency on new sheet/tab
+  if (STATE._lastDetectedKey !== key) {
+    STATE._lastDetectedKey      = key;
+    STATE.companies.col         = '';
+    STATE.companies.names       = [];
+    STATE.companies.active      = 'all';
+    STATE.companies.currencyMap = {};
+    // Reset visible cols for this new key so all columns show by default
+    STATE.visibleCols[key]      = [...allCols];
+    detectCompanies(data);
+    detectCurrencyFromData(data);
+  }
+
+  if (!STATE.visibleCols[key] || !STATE.visibleCols[key].length) {
+    STATE.visibleCols[key] = [...allCols];
+  }
+  // Only keep cols that actually exist in this data
   const cols = STATE.visibleCols[key].filter(c => allCols.includes(c));
 
-  // Auto-detect companies on first load
-  if (!STATE.companies.col) detectCompanies(data);
-
-  // Show "Set Company Column" hint if we have data but no company col detected
+  // Show "Set Company Column" button when data is loaded
   const setCoBtn = document.getElementById('set-co-col-btn');
-  if (setCoBtn) setCoBtn.style.display = data.length && !STATE.companies.col ? '' : 'none';
+  if (setCoBtn) setCoBtn.style.display = '';
 
   // Apply filters
   const { col: coCol, active: coActive } = STATE.companies;
