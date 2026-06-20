@@ -888,38 +888,59 @@ function importSettings(event) {
 //  LOGIN
 // ═══════════════════════════════════════════════════
 function doLogin() {
-  const email = document.getElementById('login-email').value.trim();
+  const email = document.getElementById('login-email').value.trim().toLowerCase();
   const pass  = document.getElementById('login-pass').value;
+  const err   = document.getElementById('login-err');
+  err.style.color = '';
+  err.textContent = '';
 
-  // Super admin check
-  if (email === STATE.auth.user.email && pass === STATE.auth.password) {
-    STATE.currentUser = { ...STATE.auth.user };
-    loginSuccess();
+  if (!email || !pass) {
+    err.textContent = 'Please enter email and password.';
     return;
   }
 
-  // Team member check — use stored password if set, else default 'member123'
-  const member = STATE.teams.find(t => t.email === email);
-  if (member) {
-    const memberPass = member.password || 'member123';
-    if (pass === memberPass) {
-      STATE.currentUser = { name: member.name, email: member.email, role: member.role, sheetAccess: member.sheetAccess };
-
-      // First login — password is still default, force them to change it
-      if (!member.password) {
-        loginSuccess();
-        // Show force-change notice after login
-        setTimeout(() => {
-          document.getElementById('fc-notice').style.display = 'flex';
-        }, 400);
-      } else {
-        loginSuccess();
-      }
-      return;
+  // ── 1. Super Admin ──
+  const adminEmail = (STATE.auth.user.email || '').toLowerCase();
+  if (email === adminEmail) {
+    if (pass === STATE.auth.password) {
+      STATE.currentUser = { ...STATE.auth.user };
+      loginSuccess();
+    } else {
+      err.textContent = 'Incorrect password for admin.';
     }
+    return;
   }
 
-  document.getElementById('login-err').textContent = 'Invalid email or password. Try again.';
+  // ── 2. Team Member ──
+  // Match email case-insensitively
+  const member = STATE.teams.find(t => (t.email || '').toLowerCase() === email);
+
+  if (!member) {
+    err.textContent = 'No account found with this email.';
+    return;
+  }
+
+  // Password priority: stored password → default 'member123'
+  const correctPass = member.password || 'member123';
+
+  if (pass === correctPass) {
+    STATE.currentUser = {
+      name: member.name,
+      email: member.email,
+      role: member.role,
+      sheetAccess: member.sheetAccess
+    };
+    loginSuccess();
+
+    // Show banner if still on default password
+    if (!member.password) {
+      setTimeout(() => {
+        document.getElementById('fc-notice').style.display = 'flex';
+      }, 400);
+    }
+  } else {
+    err.textContent = 'Incorrect password. Ask your admin to reset it if forgotten.';
+  }
 }
 
 function loginSuccess() {
@@ -2343,29 +2364,44 @@ function checkUrlToken() {
   if (!token) return;
 
   try {
-    const decoded = decodeURIComponent(escape(atob(token)));
+    const decoded  = decodeURIComponent(escape(atob(token)));
     const colonIdx = decoded.indexOf(':');
     if (colonIdx === -1) return;
 
-    const email    = decoded.slice(0, colonIdx);
+    const email    = decoded.slice(0, colonIdx).toLowerCase();
     const password = decoded.slice(colonIdx + 1);
 
-    // Find the member and set their password
-    const member = STATE.teams.find(t => t.email === email);
+    // Find member — case insensitive
+    let member = STATE.teams.find(t => (t.email || '').toLowerCase() === email);
+
     if (member) {
       member.password = password;
-      saveState();
-      // Pre-fill login email
-      document.getElementById('login-email').value = email;
-      document.getElementById('login-err').style.color = 'var(--green)';
-      document.getElementById('login-err').textContent = '✅ Your password has been updated! Enter it below to sign in.';
+    } else {
+      // Member not in this browser's localStorage yet — create a temporary entry
+      // This will be updated when admin syncs full team list
+      STATE.teams.push({
+        id: 'temp_' + Date.now(),
+        name: email.split('@')[0],
+        email: email,
+        role: 'Viewer',
+        sheetAccess: 'all',
+        password: password
+      });
     }
 
-    // Clean the URL — remove token from address bar
+    saveState();
+
+    // Pre-fill login and show success message
+    document.getElementById('login-email').value = email;
+    const errEl = document.getElementById('login-err');
+    errEl.style.color   = 'var(--green)';
+    errEl.textContent   = '✅ Password updated! Enter it below to sign in.';
+
+    // Clean URL
     window.history.replaceState({}, document.title, window.location.pathname);
 
   } catch(e) {
-    console.warn('Invalid pd_token in URL');
+    console.warn('Invalid pd_token:', e.message);
   }
 }
 
