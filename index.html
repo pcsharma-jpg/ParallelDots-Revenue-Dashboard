@@ -376,6 +376,7 @@
       <span class="badge-admin" id="user-badge">SUPER</span>
     </div>
     <button class="col-select-btn" id="topbar-admin-btn" onclick="openModal('admin-modal')">⚙ Admin</button>
+    <button class="col-select-btn" id="topbar-member-settings-btn" onclick="openModal('member-settings-modal')" style="display:none">⚙ Settings</button>
     <button class="col-select-btn" onclick="openModal('reset-pass-modal')" title="Reset Password" style="border-color:var(--yellow);color:var(--yellow)">🔑 Reset</button>
     <button class="col-select-btn" onclick="doLogout()" title="Logout" style="border-color:var(--red);color:var(--red)">⏻ Logout</button>
   </div>
@@ -731,6 +732,30 @@
     </div>
   </div>
 </div>
+<!-- Member Settings Modal (Import only — for non-admin users) -->
+<div class="overlay" id="member-settings-modal">
+  <div class="modal" style="width:420px">
+    <div class="modal-title"><span class="icon">⚙</span> Settings</div>
+
+    <div class="section-title">Sync Settings</div>
+    <div style="font-size:13px;color:var(--text2);margin-bottom:14px;line-height:1.7">
+      Ask your <strong>Super Admin</strong> to export the settings file and share it with you.<br>
+      Import it here to sync sheets, access, and your password.
+    </div>
+    <button class="btn btn-primary" style="width:100%" onclick="document.getElementById('member-import-file').click()">
+      ⬆ Import Settings File
+    </button>
+    <input type="file" id="member-import-file" accept=".json" style="display:none" onchange="importSettings(event)">
+    <div class="error-msg" id="member-sync-msg" style="margin-top:10px"></div>
+
+    <div class="btn-row" style="margin-top:16px">
+      <button class="btn btn-ghost" onclick="closeModal('member-settings-modal')">Close</button>
+    </div>
+  </div>
+</div>
+
+<!-- Reset Password Modal -->
+<div class="overlay" id="reset-pass-modal">
   <div class="modal" style="width:420px">
     <div class="modal-title"><span class="icon">🔑</span> Reset Password</div>
     <div class="form-group">
@@ -859,7 +884,13 @@ function exportSettings() {
 
 function importSettings(event) {
   const file = event.target.files[0];
-  const msg  = document.getElementById('sync-msg');
+  // Update both possible message elements (admin modal + member settings modal)
+  const msg1 = document.getElementById('sync-msg');
+  const msg2 = document.getElementById('member-sync-msg');
+  const setMsg = (text, color) => {
+    if (msg1) { msg1.style.color = color; msg1.textContent = text; }
+    if (msg2) { msg2.style.color = color; msg2.textContent = text; }
+  };
   if (!file) return;
 
   const reader = new FileReader();
@@ -867,14 +898,11 @@ function importSettings(event) {
     try {
       const data = JSON.parse(e.target.result);
 
-      // Validate it's a ParallelDots settings file
       if (!data._pd_version || !data.teams) {
-        msg.style.color = 'var(--red)';
-        msg.textContent = '❌ Invalid file — please use a ParallelDots settings export file';
+        setMsg('❌ Invalid file — please use a ParallelDots settings export file', 'var(--red)');
         return;
       }
 
-      // Apply imported settings
       if (data.auth)      STATE.auth      = data.auth;
       if (data.teams)     STATE.teams     = data.teams;
       if (data.apiConfig) {
@@ -882,11 +910,9 @@ function importSettings(event) {
         API_CONFIG.token = data.apiConfig.token || '';
       }
       if (data.sheets) {
-        // Merge sheets — keep existing cached data, update metadata
         data.sheets.forEach(importedSh => {
           const existing = STATE.sheets.find(s => s.id === importedSh.id);
           if (existing) {
-            // Update metadata but keep cached data
             existing.name    = importedSh.name;
             existing.icon    = importedSh.icon;
             existing.sheetId = importedSh.sheetId;
@@ -899,17 +925,12 @@ function importSettings(event) {
 
       saveState();
       renderSidebar();
-
-      msg.style.color = 'var(--green)';
-      msg.textContent = `✅ Settings imported successfully (exported by ${data._exported_by} on ${data._exported_at?.slice(0,10)})`;
-      showToast('✅ Settings synced! Passwords and sheets updated.');
-
-      // Clear file input for next use
+      setMsg(`✅ Settings imported! (by ${data._exported_by} on ${data._exported_at?.slice(0,10)})`, 'var(--green)');
+      showToast('✅ Settings synced! Reload to apply all changes.');
       event.target.value = '';
 
-    } catch(err) {
-      msg.style.color = 'var(--red)';
-      msg.textContent = '❌ Could not read file: ' + err.message;
+    } catch(importErr) {
+      setMsg('❌ Could not read file: ' + importErr.message, 'var(--red)');
     }
   };
   reader.readAsText(file);
@@ -937,39 +958,41 @@ function doLogin() {
       STATE.currentUser = { ...STATE.auth.user };
       loginSuccess();
     } else {
-      err.textContent = 'Incorrect password for admin.';
+      err.textContent = 'Incorrect password.';
     }
     return;
   }
 
-  // ── 2. Team Member ──
+  // ── 2. Team Member — must exist in STATE.teams ──
   const member = STATE.teams.find(t => (t.email || '').toLowerCase() === email);
-
   if (!member) {
-    err.textContent = 'No account found with this email. Contact your Admin.';
+    err.textContent = 'No account found. Contact your Admin.';
     return;
   }
 
-  // Password priority: stored password → default 'member123'
-  const correctPass = member.password || 'member123';
+  // Strict password check:
+  // If admin has set a password → ONLY that password works
+  // If never set (member.password is empty/undefined) → 'member123' default
+  const correctPass = member.password ? member.password : 'member123';
 
-  if (pass === correctPass) {
-    STATE.currentUser = {
-      name: member.name,
-      email: member.email,
-      role: member.role,
-      sheetAccess: member.sheetAccess
-    };
-    loginSuccess();
+  if (pass !== correctPass) {
+    err.textContent = 'Incorrect password. Ask your Admin to reset it.';
+    return;
+  }
 
-    // Show banner if still on default password
-    if (!member.password) {
-      setTimeout(() => {
-        document.getElementById('fc-notice').style.display = 'flex';
-      }, 400);
-    }
-  } else {
-    err.textContent = 'Incorrect password. Ask your admin to reset it if forgotten.';
+  STATE.currentUser = {
+    name:        member.name,
+    email:       member.email,
+    role:        member.role,
+    sheetAccess: member.sheetAccess
+  };
+  loginSuccess();
+
+  // Show banner only if still on default password
+  if (!member.password) {
+    setTimeout(() => {
+      document.getElementById('fc-notice').style.display = 'flex';
+    }, 400);
   }
 }
 
@@ -982,15 +1005,21 @@ function loginSuccess() {
 
   const isSuper = u.role === 'super';
 
-  // Super admin only elements
-  document.getElementById('topbar-admin-btn').style.display    = isSuper ? '' : 'none';
+  // Topbar buttons
+  document.getElementById('topbar-admin-btn').style.display           = isSuper ? '' : 'none';
+  document.getElementById('topbar-member-settings-btn').style.display = isSuper ? 'none' : '';
+
+  // Sidebar bottom actions
   document.getElementById('sidebar-link-sheet').style.display  = isSuper ? '' : 'none';
   document.getElementById('sidebar-manage-team').style.display = isSuper ? '' : 'none';
 
-  // User pill — super: opens team mgmt | member: opens reset password
-  document.getElementById('user-pill-btn').onclick = isSuper
-    ? () => openModal('team-modal')
-    : () => openModal('reset-pass-modal');
+  // User pill: super → team modal | member → just shows name (no action)
+  const pill = document.getElementById('user-pill-btn');
+  pill.style.cursor = isSuper ? 'pointer' : 'default';
+  pill.onclick = isSuper ? () => openModal('team-modal') : null;
+
+  // Close any stray open modals from previous session
+  document.querySelectorAll('.overlay.open').forEach(o => o.classList.remove('open'));
 
   renderSidebar();
   renderCompanyButtons();
@@ -999,16 +1028,25 @@ function loginSuccess() {
 
 function doLogout() {
   STATE.currentUser = null;
-  // Reset UI to default (admin view) so next login works fresh
-  document.getElementById('topbar-admin-btn').style.display    = '';
+
+  // Close all open modals first
+  document.querySelectorAll('.overlay.open').forEach(o => o.classList.remove('open'));
+
+  // Reset topbar to default (admin view) for next login
+  document.getElementById('topbar-admin-btn').style.display           = '';
+  document.getElementById('topbar-member-settings-btn').style.display = 'none';
   document.getElementById('sidebar-link-sheet').style.display  = '';
   document.getElementById('sidebar-manage-team').style.display = '';
-  document.getElementById('user-pill-btn').onclick = () => openModal('team-modal');
-  // Clear login inputs
-  document.getElementById('login-email').value    = '';
-  document.getElementById('login-pass').value     = '';
+  const pill = document.getElementById('user-pill-btn');
+  pill.style.cursor = 'pointer';
+  pill.onclick = () => openModal('team-modal');
+
+  // Clear login form
+  document.getElementById('login-email').value     = '';
+  document.getElementById('login-pass').value      = '';
   document.getElementById('login-err').textContent = '';
   document.getElementById('login-err').style.color = '';
+
   document.getElementById('login-screen').style.display = 'flex';
   showToast('Logged out successfully');
 }
