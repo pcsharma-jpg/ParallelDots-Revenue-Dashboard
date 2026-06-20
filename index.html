@@ -608,9 +608,9 @@
         </select>
       </div>
       <div class="form-group" style="margin:0">
-        <label>Sheet Access</label>
-        <select id="new-member-sheet">
-          <option value="all">All Sheets</option>
+        <label>Sheet Access <span style="color:var(--text3);font-weight:400">(Ctrl+click for multiple)</span></label>
+        <select id="new-member-sheet" multiple style="height:80px">
+          <option value="all" selected>All Sheets</option>
         </select>
       </div>
     </div>
@@ -1039,21 +1039,59 @@ function showToast(msg, type='success') {
 // ═══════════════════════════════════════════════════
 function renderSidebar() {
   const list = document.getElementById('sheet-nav-list');
-  let html = '';
+  let html   = '';
   const user = STATE.currentUser;
+
   STATE.sheets.forEach(sh => {
-    // Super admin OR no restriction OR explicit access — show sheet
-    const hasAccess = !user || user.role === 'super' || user.sheetAccess === 'all' || user.sheetAccess === sh.id;
+    // Access check:
+    // super admin  → always show
+    // sheetAccess = 'all' → show all
+    // sheetAccess = single sheet id → show only that sheet
+    // sheetAccess = comma-separated ids → show those sheets
+    let hasAccess = false;
+    if (!user || user.role === 'super') {
+      hasAccess = true;
+    } else if (user.sheetAccess === 'all') {
+      hasAccess = true;
+    } else {
+      // Support both single id and comma-separated ids
+      const allowedIds = String(user.sheetAccess).split(',').map(s => s.trim());
+      hasAccess = allowedIds.includes(sh.id);
+    }
     if (!hasAccess) return;
+
     html += `<div class="sheet-item" id="nav-${sh.id}" onclick="selectSheet('${sh.id}')">
-      <span class="sheet-icon">${sh.icon}</span> <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${sh.name}</span>
+      <span class="sheet-icon">${sh.icon}</span>
+      <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${sh.name}</span>
       <span class="sheet-count">${sh.tabs?.length || 0}</span>
     </div>`;
   });
-  if (!html) html = `<div style="padding:10px 14px;font-size:12px;color:var(--text3)">No sheets linked yet.<br><span style="color:var(--accent);cursor:pointer" onclick="openModal('link-modal')">+ Link a sheet</span></div>`;
+
+  if (!html) {
+    if (user && user.role !== 'super' && STATE.sheets.length === 0) {
+      // Member browser — sheets not synced yet
+      html = `<div style="padding:10px 14px;font-size:12px;color:var(--yellow);line-height:1.6">
+        ⚠️ No sheets loaded.<br>
+        Ask your Admin to share the<br>
+        <strong>Export Settings</strong> file with you,<br>
+        then import it via ⚙ Admin.
+      </div>`;
+    } else if (user && user.role !== 'super' && STATE.sheets.length > 0) {
+      // Member has no access to any sheet
+      html = `<div style="padding:10px 14px;font-size:12px;color:var(--text3);line-height:1.6">
+        You don't have access to any sheets.<br>
+        Contact your Admin.
+      </div>`;
+    } else {
+      html = `<div style="padding:10px 14px;font-size:12px;color:var(--text3)">No sheets linked yet.<br>
+        <span style="color:var(--accent);cursor:pointer" onclick="openModal('link-modal')">+ Link a sheet</span>
+      </div>`;
+    }
+  }
+
   list.innerHTML = html;
 
-  // Update team sheet select
+  // Update team sheet select dropdown
   const sel = document.getElementById('new-member-sheet');
   if (sel) {
     let opts = '<option value="all">All Sheets</option>';
@@ -2269,7 +2307,13 @@ function renderTeamModal() {
       </div>
       <div class="team-access">
         <span class="access-tag">${m.role}</span>
-        <span class="access-tag">${m.sheetAccess === 'all' ? 'All Sheets' : STATE.sheets.find(s=>s.id===m.sheetAccess)?.name || m.sheetAccess}</span>
+        <span class="access-tag">${
+          m.sheetAccess === 'all'
+            ? 'All Sheets'
+            : String(m.sheetAccess).split(',').map(id =>
+                STATE.sheets.find(s => s.id === id.trim())?.name || id.trim()
+              ).join(', ')
+        }</span>
       </div>
       ${isSuper ? `
         <button class="btn btn-xs" onclick="openMemberResetModal('${m.id}')"
@@ -2282,10 +2326,17 @@ function renderTeamModal() {
 }
 
 function addMember() {
-  const name = document.getElementById('new-member-name').value.trim();
+  const name  = document.getElementById('new-member-name').value.trim();
   const email = document.getElementById('new-member-email').value.trim();
-  const role = document.getElementById('new-member-role').value;
-  const sheetAccess = document.getElementById('new-member-sheet').value;
+  const role  = document.getElementById('new-member-role').value;
+
+  // Read multi-select — get all selected values
+  const sheetSel    = document.getElementById('new-member-sheet');
+  const selectedOpts = Array.from(sheetSel.selectedOptions).map(o => o.value);
+  // If 'all' is selected, or nothing selected → 'all'
+  const sheetAccess = (!selectedOpts.length || selectedOpts.includes('all'))
+    ? 'all'
+    : selectedOpts.join(',');
 
   if (!name || !email) return showToast('Name and email are required', 'error');
   if (STATE.teams.find(t => t.email === email)) return showToast('Member already exists', 'error');
