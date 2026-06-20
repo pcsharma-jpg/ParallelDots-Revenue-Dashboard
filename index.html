@@ -139,7 +139,7 @@
   #tab-bar {
     display: flex; align-items: center; gap: 2px; padding: 0 20px;
     border-bottom: 1px solid var(--border); flex-shrink: 0; background: var(--bg);
-    overflow-x: auto; scrollbar-width: none;
+    overflow-x: auto; scrollbar-width: none; position: relative;
   }
   #tab-bar::-webkit-scrollbar { display: none; }
   .tab {
@@ -372,6 +372,8 @@
       <span class="badge-admin" id="user-badge">SUPER</span>
     </div>
     <button class="col-select-btn" onclick="openModal('admin-modal')">⚙ Admin</button>
+    <button class="col-select-btn" onclick="openModal('reset-pass-modal')" title="Reset Password" style="border-color:var(--yellow);color:var(--yellow)">🔑 Reset</button>
+    <button class="col-select-btn" onclick="doLogout()" title="Logout" style="border-color:var(--red);color:var(--red)">⏻ Logout</button>
   </div>
 </div>
 
@@ -405,6 +407,7 @@
       <div class="sheet-title-row">
         <div class="sheet-title" id="page-title">Overview</div>
         <div class="header-actions">
+          <button class="col-select-btn" id="tabs-filter-btn" onclick="toggleTabFilter()" style="display:none">⊟ Tabs</button>
           <button class="col-select-btn" onclick="openModal('col-modal')">⊞ Columns</button>
           <button class="col-select-btn" onclick="exportCSV()">⬇ Export</button>
           <button class="col-select-btn" onclick="refreshData()">↻ Refresh</button>
@@ -423,9 +426,11 @@
       </div>
     </div>
     <!-- TABS (bottom of header, above data) -->
-    <div id="tab-bar">
+    <div id="tab-bar" style="position:relative">
       <div class="tab active" id="tab-overview" onclick="selectTab('overview',this)">📊 Overview</div>
     </div>
+    <!-- Tab Filter Dropdown -->
+    <div id="tab-filter-dropdown" style="display:none;position:fixed;z-index:200;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:10px;min-width:200px;max-height:260px;overflow-y:auto;box-shadow:0 8px 24px rgba(0,0,0,.4)"></div>
     <!-- SPLIT VIEW AREA -->
     <div id="split-area">
       <div class="split-pane" id="split-pane-1">
@@ -495,6 +500,9 @@
       <div class="link-info" style="background:rgba(34,197,94,.1);border:1px solid var(--green);color:var(--green);margin-bottom:14px;border-radius:8px;padding:10px 12px">
         ✅ API Connected! Enter the Sheet ID to add your sheet.
       </div>
+      <div class="link-info" style="margin-bottom:14px">
+        📋 <strong>All tabs will be loaded automatically</strong> — no need to enter tab IDs manually.
+      </div>
       <div class="form-group">
         <label>Sheet Display Name</label>
         <input type="text" id="new-sheet-name" placeholder="e.g. Sales Pipeline">
@@ -503,15 +511,9 @@
         <label>Google Sheet ID &nbsp;<span style="color:var(--text3);font-weight:400">(from the URL, the part after <code style="font-size:10px">/spreadsheets/d/</code>)</span></label>
         <input type="text" id="new-sheet-id" placeholder="1ABC...XYZ">
       </div>
-      <div style="display:flex;gap:10px">
-        <div class="form-group" style="flex:1">
-          <label>Tab GID &nbsp;<span style="color:var(--text3);font-weight:400">(0 = first tab)</span></label>
-          <input type="text" id="new-sheet-gid" placeholder="0" value="0">
-        </div>
-        <div class="form-group" style="flex:0 0 90px">
-          <label>Icon</label>
-          <input type="text" id="new-sheet-icon" placeholder="📋" value="📋">
-        </div>
+      <div class="form-group" style="flex:0 0 90px;max-width:120px">
+        <label>Icon</label>
+        <input type="text" id="new-sheet-icon" placeholder="📋" value="📋">
       </div>
       <div class="error-msg" id="link-err"></div>
       <div class="btn-row">
@@ -628,6 +630,30 @@
   </div>
 </div>
 
+<!-- Reset Password Modal -->
+<div class="overlay" id="reset-pass-modal">
+  <div class="modal" style="width:420px">
+    <div class="modal-title"><span class="icon">🔑</span> Reset Password</div>
+    <div class="form-group">
+      <label>Current Password</label>
+      <input type="password" id="rp-curr" placeholder="Enter current password">
+    </div>
+    <div class="form-group">
+      <label>New Password</label>
+      <input type="password" id="rp-new" placeholder="Min 6 characters">
+    </div>
+    <div class="form-group">
+      <label>Confirm New Password</label>
+      <input type="password" id="rp-conf" placeholder="Re-enter new password">
+    </div>
+    <div class="error-msg" id="rp-err"></div>
+    <div class="btn-row">
+      <button class="btn btn-ghost" onclick="closeModal('reset-pass-modal')">Cancel</button>
+      <button class="btn btn-primary" onclick="resetPasswordModal()">Update Password</button>
+    </div>
+  </div>
+</div>
+
 <!-- Toast -->
 <div id="toast">✓ <span id="toast-msg">Done</span></div>
 
@@ -723,6 +749,49 @@ function loginSuccess() {
   renderSidebar();
   renderCompanyButtons();
   renderOverview();
+}
+
+function doLogout() {
+  STATE.currentUser = null;
+  // Clear login inputs
+  document.getElementById('login-email').value = '';
+  document.getElementById('login-pass').value = '';
+  document.getElementById('login-err').textContent = '';
+  // Show login screen
+  document.getElementById('login-screen').style.display = 'flex';
+  showToast('Logged out successfully');
+}
+
+function resetPasswordModal() {
+  const curr = document.getElementById('rp-curr').value;
+  const nw   = document.getElementById('rp-new').value;
+  const cf   = document.getElementById('rp-conf').value;
+  const err  = document.getElementById('rp-err');
+
+  // Check against super admin password OR member default
+  const isSuper  = STATE.currentUser?.role === 'super';
+  const validCurr = isSuper
+    ? curr === STATE.auth.password
+    : curr === 'member123';
+
+  if (!validCurr)      return (err.textContent = 'Current password is incorrect');
+  if (nw.length < 6)   return (err.textContent = 'New password must be at least 6 characters');
+  if (nw !== cf)        return (err.textContent = 'Passwords do not match');
+
+  if (isSuper) {
+    STATE.auth.password = nw;
+  } else {
+    // For team members — store per-member password
+    const m = STATE.teams.find(t => t.email === STATE.currentUser.email);
+    if (m) m.password = nw;
+  }
+  saveState();
+  err.textContent = '';
+  document.getElementById('rp-curr').value = '';
+  document.getElementById('rp-new').value  = '';
+  document.getElementById('rp-conf').value = '';
+  closeModal('reset-pass-modal');
+  showToast('✅ Password updated successfully');
 }
 
 document.getElementById('login-pass').addEventListener('keydown', e => e.key==='Enter' && doLogin());
@@ -828,6 +897,78 @@ function renderTabsFor(sheetObj) {
     });
   }
   bar.innerHTML = html;
+
+  // Show/hide the Tabs button in header-actions
+  const tabsBtn = document.getElementById('tabs-filter-btn');
+  if (tabsBtn) {
+    tabsBtn.style.display = (sheetObj && sheetObj.tabs && sheetObj.tabs.length > 0) ? '' : 'none';
+  }
+
+  // Hide dropdown if open
+  const dd = document.getElementById('tab-filter-dropdown');
+  if (dd) dd.style.display = 'none';
+}
+
+function toggleTabFilter() {
+  const dd  = document.getElementById('tab-filter-dropdown');
+  const btn = document.getElementById('tabs-filter-btn');
+  if (!dd || !btn) return;
+
+  if (dd.style.display !== 'none') {
+    dd.style.display = 'none';
+    return;
+  }
+
+  // Position dropdown below the Tabs button in header-actions
+  const rect = btn.getBoundingClientRect();
+  dd.style.top  = (rect.bottom + 6) + 'px';
+  dd.style.left = Math.max(8, rect.right - 220) + 'px';
+  dd.style.position = 'fixed';
+
+  // Build tab list
+  const sh = STATE.currentSheetObj;
+  if (!sh || !sh.tabs) { dd.style.display = 'none'; return; }
+
+  dd.innerHTML = `
+    <div style="font-size:10px;font-weight:700;color:var(--text3);letter-spacing:.8px;text-transform:uppercase;margin-bottom:8px;padding-bottom:6px;border-bottom:1px solid var(--border)">
+      Switch Tab
+    </div>
+    ${sh.tabs.map(tab => `
+      <div style="display:flex;align-items:center;gap:8px;padding:7px 10px;border-radius:7px;cursor:pointer;font-size:13px;
+                  color:${STATE.activeTab === tab ? 'var(--accent)' : 'var(--text)'};
+                  background:${STATE.activeTab === tab ? 'var(--accent-glow)' : 'transparent'};
+                  transition:background .15s"
+           onmouseover="this.style.background='var(--surface2)'" 
+           onmouseout="this.style.background='${STATE.activeTab === tab ? 'var(--accent-glow)' : ''}'"
+           onclick="jumpToTab('${tab}')">
+        <span style="font-size:13px">📄</span>
+        <span style="flex:1">${tab}</span>
+        ${STATE.activeTab === tab ? '<span style="font-size:10px;font-weight:700;color:var(--accent)">● Active</span>' : ''}
+      </div>
+    `).join('')}
+    <div style="border-top:1px solid var(--border);margin-top:6px;padding-top:6px;text-align:center">
+      <span style="font-size:11px;color:var(--text3)">${sh.tabs.length} tabs in this sheet</span>
+    </div>
+  `;
+
+  dd.style.display = 'block';
+
+  // Close on outside click
+  setTimeout(() => {
+    document.addEventListener('click', function closeDD(e) {
+      if (!dd.contains(e.target) && e.target.id !== 'tabs-filter-btn') {
+        dd.style.display = 'none';
+        document.removeEventListener('click', closeDD);
+      }
+    });
+  }, 10);
+}
+
+function jumpToTab(tabName) {
+  document.getElementById('tab-filter-dropdown').style.display = 'none';
+  const tel = document.getElementById(`tab-${tabName}`);
+  selectTab(tabName, tel, null);
+  if (tel) tel.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
 }
 
 function selectTab(tabName, el, sheetObj) {
@@ -1004,14 +1145,13 @@ function showSheetStep() {
 }
 
 // ═══════════════════════════════════════════════════
-//  FETCH SHEET DATA — Secure via Apps Script
+//  FETCH ALL TABS — Loads every tab of a Google Sheet
 // ═══════════════════════════════════════════════════
-async function fetchSheetData(sh) {
+async function fetchAllTabs(sh) {
   const el = document.getElementById('page-sheet');
-  el.innerHTML = `<div class="empty-state"><div class="icon">⏳</div><h3>Loading sheet data securely...</h3><p>Fetching data via Apps Script...</p></div>`;
+  el.innerHTML = `<div class="empty-state"><div class="icon">⏳</div><h3>Loading all tabs...</h3><p>Fetching all sheet tabs via Apps Script. Please wait...</p></div>`;
   showPage('sheet');
 
-  // Check API config
   if (!API_CONFIG.url || !API_CONFIG.token) {
     el.innerHTML = `<div class="empty-state">
       <div class="icon">🔐</div>
@@ -1023,41 +1163,85 @@ async function fetchSheetData(sh) {
   }
 
   try {
-    const apiUrl = `${API_CONFIG.url}?action=getData&token=${encodeURIComponent(API_CONFIG.token)}`
-      + `&sheetId=${encodeURIComponent(sh.sheetId)}`
-      + `&gid=${encodeURIComponent(sh.gid || '0')}`
-      + `&name=${encodeURIComponent(sh.name)}`;
-    const res  = await fetch(apiUrl);
-    const json = await res.json();
+    // Step 1 — Get list of all tab names for this sheet
+    const listUrl = `${API_CONFIG.url}?action=getTabList&token=${encodeURIComponent(API_CONFIG.token)}`
+      + `&sheetId=${encodeURIComponent(sh.sheetId)}`;
+    const listRes  = await fetch(listUrl);
+    const listJson = await listRes.json();
 
-    if (!json.success) throw new Error(json.error || 'API error');
+    if (!listJson.success) throw new Error(listJson.error || 'Could not get tab list');
 
-    const dataRows = json.data;
-    if (!dataRows || !dataRows.length) throw new Error('No data found in this sheet');
+    const tabNames = listJson.tabs; // array of tab name strings
+    if (!tabNames || !tabNames.length) throw new Error('No tabs found in this sheet');
 
-    // Store data
-    if (!sh.data) sh.data = {};
-    if (!sh.tabs) sh.tabs = [];
-    const tabName = json.name || sh.name;
-    sh.data[tabName] = dataRows;
-    if (!sh.tabs.includes(tabName)) sh.tabs.push(tabName);
-
+    // Update tab list in state immediately so sidebar shows count
+    sh.tabs = tabNames;
+    sh.data = sh.data || {};
     saveState();
     renderSidebar();
     renderTabsFor(sh);
-    renderTable(dataRows, sh.id + '_' + tabName);
-    showToast(`✅ ${dataRows.length} rows loaded from ${sh.name}`);
+
+    // Step 2 — Fetch data for each tab sequentially
+    let loadedCount = 0;
+    for (const tabName of tabNames) {
+      try {
+        el.innerHTML = `<div class="empty-state"><div class="icon">⏳</div>
+          <h3>Loading tab ${loadedCount + 1} of ${tabNames.length}…</h3>
+          <p><strong>${tabName}</strong></p>
+          <div style="width:200px;height:4px;background:var(--surface3);border-radius:2px;margin:12px auto 0">
+            <div style="width:${Math.round((loadedCount/tabNames.length)*100)}%;height:100%;background:var(--accent);border-radius:2px;transition:width .3s"></div>
+          </div>
+        </div>`;
+
+        const dataUrl = `${API_CONFIG.url}?action=getData&token=${encodeURIComponent(API_CONFIG.token)}`
+          + `&sheetId=${encodeURIComponent(sh.sheetId)}`
+          + `&tabName=${encodeURIComponent(tabName)}`;
+        const dataRes  = await fetch(dataUrl);
+        const dataJson = await dataRes.json();
+
+        if (dataJson.success && dataJson.data && dataJson.data.length) {
+          sh.data[tabName] = dataJson.data;
+        } else {
+          // Empty tab — store empty array so it still appears in tab list
+          sh.data[tabName] = [];
+          console.warn(`Tab "${tabName}" returned no data:`, dataJson.error || 'empty');
+        }
+        loadedCount++;
+        renderTabsFor(sh);
+        saveState();
+      } catch(tabErr) {
+        console.warn(`Failed to load tab "${tabName}":`, tabErr.message);
+        sh.data[tabName] = [];
+        loadedCount++;
+      }
+    }
+
+    // Step 3 — Show first tab with data
+    const firstTabWithData = tabNames.find(t => sh.data[t] && sh.data[t].length > 0) || tabNames[0];
+    renderTabsFor(sh);
+    renderSidebar();
+    selectTab(firstTabWithData, null, sh);
+    showToast(`✅ ${loadedCount} tab(s) loaded from "${sh.name}"`);
 
   } catch(err) {
     el.innerHTML = `<div class="empty-state">
       <div class="icon">⚠️</div>
-      <h3>Failed to load sheet data</h3>
+      <h3>Failed to load sheet</h3>
       <p>${err.message}</p>
-      <p style="margin-top:8px;font-size:12px;color:var(--text3)">Please verify: Is the Sheet ID correct? Is the sheet registered in Apps Script?</p>
-      <button class="btn btn-ghost" style="margin-top:12px" onclick="openModal('link-modal')">Reconnect</button>
+      <p style="margin-top:8px;font-size:12px;color:var(--text3)">
+        Make sure your Apps Script has the <code>getTabList</code> and <code>getData</code> actions.<br>
+        Verify the Sheet ID is correct and the sheet is accessible.
+      </p>
+      <button class="btn btn-ghost" style="margin-top:12px" onclick="fetchAllTabs(STATE.currentSheetObj)">↻ Retry</button>
+      <button class="btn btn-ghost" style="margin-top:12px;margin-left:8px" onclick="openModal('link-modal')">Reconnect</button>
     </div>`;
     showToast('Sheet load failed', 'error');
   }
+}
+
+// Keep fetchSheetData as an alias — used by refreshData() and retry flows
+function fetchSheetData(sh) {
+  return fetchAllTabs(sh);
 }
 
 // ═══════════════════════════════════════════════════
@@ -1646,7 +1830,6 @@ function exportSplitCSV(pane) {
 async function linkSheet() {
   const name    = document.getElementById('new-sheet-name').value.trim();
   const sheetId = document.getElementById('new-sheet-id').value.trim();
-  const gid     = document.getElementById('new-sheet-gid').value.trim() || '0';
   const icon    = document.getElementById('new-sheet-icon').value.trim() || '📋';
   const errEl   = document.getElementById('link-err');
 
@@ -1657,32 +1840,30 @@ async function linkSheet() {
 
   const id = 'sh_' + Date.now();
 
-  // Try to register in Apps Script config (non-blocking — even if it fails, data can still load)
+  // Try to register in Apps Script config (non-blocking)
   try {
     const apiUrl = `${API_CONFIG.url}?action=addSheet&token=${encodeURIComponent(API_CONFIG.token)}`
       + `&id=${id}&name=${encodeURIComponent(name)}&icon=${encodeURIComponent(icon)}`
-      + `&sheetId=${encodeURIComponent(sheetId)}&gid=${encodeURIComponent(gid)}`;
+      + `&sheetId=${encodeURIComponent(sheetId)}&gid=0`;
     const res  = await fetch(apiUrl);
     const json = await res.json();
-    // Log but don't block — data fetch works independently of registry
     if (!json.success) console.warn('Registry warning:', json.error);
   } catch(e) {
     console.warn('Registry unreachable:', e.message);
   }
 
-  // Always add to local state and fetch data
-  STATE.sheets.push({ id, name, icon, sheetId, gid, tabs: [], data: {} });
+  // Add to local state — no gid needed, all tabs will auto-load
+  STATE.sheets.push({ id, name, icon, sheetId, gid: '0', tabs: [], data: {} });
   saveState();
   renderSidebar();
   closeModal('link-modal');
   document.getElementById('new-sheet-name').value = '';
   document.getElementById('new-sheet-id').value   = '';
-  document.getElementById('new-sheet-gid').value  = '0';
   errEl.textContent = '';
-  showToast(`✅ "${name}" added! Loading data...`);
+  showToast(`✅ "${name}" added! Loading all tabs...`);
   const sh = STATE.sheets.find(s => s.id === id);
   selectSheet(id);
-  fetchSheetData(sh);
+  fetchAllTabs(sh);
 }
 
 // ── On startup: sync sheet list from server ──
