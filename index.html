@@ -346,7 +346,11 @@
     </div>
     <div class="error-msg" id="login-err"></div>
     <button class="btn btn-primary" style="width:100%;margin-top:4px" onclick="doLogin()">Sign In</button>
-    <div class="login-hint" style="margin-top:14px">Default: admin@paralleldots.com / admin123</div>
+    <div style="text-align:center;margin-top:12px">
+      <span style="font-size:12px;color:var(--text3)">Forgot your password? </span>
+      <span style="font-size:12px;color:var(--accent);cursor:pointer;text-decoration:underline" onclick="showForgotForm()">Contact your Admin</span>
+    </div>
+    <div class="login-hint" style="margin-top:8px">Default: admin@paralleldots.com / admin123</div>
   </div>
 </div>
 
@@ -685,6 +689,19 @@
 <!-- Toast -->
 <div id="toast">✓ <span id="toast-msg">Done</span></div>
 
+<!-- First-Login Banner — shown to members logging in with default password -->
+<div id="fc-notice" style="display:none;position:fixed;top:0;left:0;right:0;z-index:1500;
+  background:linear-gradient(90deg,#f59e0b,#d97706);color:#000;
+  padding:10px 20px;align-items:center;justify-content:space-between;gap:12px;font-size:13px;font-weight:600">
+  <span>⚠️ You are using the default password. Please change it now for security.</span>
+  <div style="display:flex;gap:8px;flex-shrink:0">
+    <button class="btn btn-xs" onclick="openModal('reset-pass-modal')"
+      style="background:#000;color:#f59e0b;border:none;font-weight:700">Change Password Now</button>
+    <button class="btn btn-xs" onclick="document.getElementById('fc-notice').style.display='none'"
+      style="background:rgba(0,0,0,.2);color:#000;border:none">Remind me later</button>
+  </div>
+</div>
+
 <script>
 // ═══════════════════════════════════════════════════
 //  STATE
@@ -750,22 +767,37 @@ function saveState() {
 // ═══════════════════════════════════════════════════
 function doLogin() {
   const email = document.getElementById('login-email').value.trim();
-  const pass = document.getElementById('login-pass').value;
+  const pass  = document.getElementById('login-pass').value;
 
-  // super admin
+  // Super admin check
   if (email === STATE.auth.user.email && pass === STATE.auth.password) {
     STATE.currentUser = { ...STATE.auth.user };
     loginSuccess();
     return;
   }
-  // team member
+
+  // Team member check — use stored password if set, else default 'member123'
   const member = STATE.teams.find(t => t.email === email);
-  if (member && pass === 'member123') {
-    STATE.currentUser = { name: member.name, email: member.email, role: member.role, sheetAccess: member.sheetAccess };
-    loginSuccess();
-    return;
+  if (member) {
+    const memberPass = member.password || 'member123';
+    if (pass === memberPass) {
+      STATE.currentUser = { name: member.name, email: member.email, role: member.role, sheetAccess: member.sheetAccess };
+
+      // First login — password is still default, force them to change it
+      if (!member.password) {
+        loginSuccess();
+        // Show force-change notice after login
+        setTimeout(() => {
+          document.getElementById('fc-notice').style.display = 'flex';
+        }, 400);
+      } else {
+        loginSuccess();
+      }
+      return;
+    }
   }
-  document.getElementById('login-err').textContent = 'Invalid credentials. Try again.';
+
+  document.getElementById('login-err').textContent = 'Invalid email or password. Try again.';
 }
 
 function loginSuccess() {
@@ -796,20 +828,25 @@ function resetPasswordModal() {
   const cf   = document.getElementById('rp-conf').value;
   const err  = document.getElementById('rp-err');
 
-  // Check against super admin password OR member default
-  const isSuper  = STATE.currentUser?.role === 'super';
-  const validCurr = isSuper
-    ? curr === STATE.auth.password
-    : curr === 'member123';
+  const isSuper = STATE.currentUser?.role === 'super';
 
-  if (!validCurr)      return (err.textContent = 'Current password is incorrect');
-  if (nw.length < 6)   return (err.textContent = 'New password must be at least 6 characters');
-  if (nw !== cf)        return (err.textContent = 'Passwords do not match');
+  // For members — check stored password OR default 'member123'
+  let validCurr = false;
+  if (isSuper) {
+    validCurr = curr === STATE.auth.password;
+  } else {
+    const m = STATE.teams.find(t => t.email === STATE.currentUser?.email);
+    const memberPass = m?.password || 'member123';
+    validCurr = curr === memberPass;
+  }
+
+  if (!validCurr)    return (err.textContent = 'Current password is incorrect');
+  if (nw.length < 6) return (err.textContent = 'New password must be at least 6 characters');
+  if (nw !== cf)      return (err.textContent = 'Passwords do not match');
 
   if (isSuper) {
     STATE.auth.password = nw;
   } else {
-    // For team members — store per-member password
     const m = STATE.teams.find(t => t.email === STATE.currentUser.email);
     if (m) m.password = nw;
   }
@@ -819,7 +856,18 @@ function resetPasswordModal() {
   document.getElementById('rp-new').value  = '';
   document.getElementById('rp-conf').value = '';
   closeModal('reset-pass-modal');
+  // Also hide first-login banner if it was showing
+  const fcNotice = document.getElementById('fc-notice');
+  if (fcNotice) fcNotice.style.display = 'none';
   showToast('✅ Password updated successfully');
+}
+
+function showForgotForm() {
+  // Just show a hint — no self-service reset without admin
+  const err = document.getElementById('login-err');
+  err.style.color = 'var(--accent)';
+  err.textContent = 'Please ask your Super Admin to reset your password from Team Management → 🔑';
+  setTimeout(() => { err.style.color = ''; }, 6000);
 }
 
 document.getElementById('login-pass').addEventListener('keydown', e => e.key==='Enter' && doLogin());
