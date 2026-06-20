@@ -630,6 +630,34 @@
   </div>
 </div>
 
+<!-- Admin Reset Member Password Modal -->
+<div class="overlay" id="member-reset-modal">
+  <div class="modal" style="width:420px">
+    <div class="modal-title"><span class="icon">🔑</span> Reset Member Password</div>
+    <div style="padding:10px 14px;background:rgba(245,158,11,.1);border:1px solid var(--yellow);border-radius:8px;margin-bottom:16px;font-size:13px;color:var(--yellow)">
+      ⚠️ Super Admin action — you are resetting a member's password without requiring their current password.
+    </div>
+    <div style="font-size:13px;color:var(--text2);margin-bottom:16px">
+      Member: <strong id="mr-member-name" style="color:var(--text)">—</strong><br>
+      Email: <span id="mr-member-email" style="color:var(--text3)">—</span>
+    </div>
+    <input type="hidden" id="mr-member-id">
+    <div class="form-group">
+      <label>New Password</label>
+      <input type="password" id="mr-new-pass" placeholder="Min 6 characters">
+    </div>
+    <div class="form-group">
+      <label>Confirm New Password</label>
+      <input type="password" id="mr-conf-pass" placeholder="Re-enter new password">
+    </div>
+    <div class="error-msg" id="mr-err"></div>
+    <div class="btn-row">
+      <button class="btn btn-ghost" onclick="closeModal('member-reset-modal')">Cancel</button>
+      <button class="btn btn-primary" onclick="adminResetMemberPassword()">Reset Password</button>
+    </div>
+  </div>
+</div>
+
 <!-- Reset Password Modal -->
 <div class="overlay" id="reset-pass-modal">
   <div class="modal" style="width:420px">
@@ -2040,6 +2068,7 @@ function removeSheet(id) {
 function renderTeamModal() {
   const container = document.getElementById('team-list-container');
   document.getElementById('team-count').textContent = STATE.teams.length;
+  const isSuper = STATE.currentUser?.role === 'super';
   container.innerHTML = STATE.teams.map(m => `
     <div class="team-row">
       <div class="avatar">${m.name[0]}</div>
@@ -2051,7 +2080,12 @@ function renderTeamModal() {
         <span class="access-tag">${m.role}</span>
         <span class="access-tag">${m.sheetAccess === 'all' ? 'All Sheets' : STATE.sheets.find(s=>s.id===m.sheetAccess)?.name || m.sheetAccess}</span>
       </div>
-      ${STATE.currentUser?.role === 'super' ? `<button class="btn btn-danger btn-xs" onclick="removeMember('${m.id}')">✕</button>` : ''}
+      ${isSuper ? `
+        <button class="btn btn-xs" onclick="openMemberResetModal('${m.id}')"
+          style="background:var(--surface3);border:1px solid var(--border);color:var(--yellow);font-size:11px"
+          title="Reset password for ${m.name}">🔑</button>
+        <button class="btn btn-danger btn-xs" onclick="removeMember('${m.id}')">✕</button>
+      ` : ''}
     </div>
   `).join('') || `<div style="color:var(--text3);font-size:13px">No team members yet.</div>`;
 }
@@ -2078,6 +2112,37 @@ function removeMember(id) {
   saveState();
   renderTeamModal();
   showToast('Member removed');
+}
+
+function openMemberResetModal(memberId) {
+  const m = STATE.teams.find(t => t.id === memberId);
+  if (!m) return;
+  document.getElementById('mr-member-id').value     = memberId;
+  document.getElementById('mr-member-name').textContent  = m.name;
+  document.getElementById('mr-member-email').textContent = m.email;
+  document.getElementById('mr-new-pass').value  = '';
+  document.getElementById('mr-conf-pass').value = '';
+  document.getElementById('mr-err').textContent = '';
+  openModal('member-reset-modal');
+}
+
+function adminResetMemberPassword() {
+  const id  = document.getElementById('mr-member-id').value;
+  const nw  = document.getElementById('mr-new-pass').value;
+  const cf  = document.getElementById('mr-conf-pass').value;
+  const err = document.getElementById('mr-err');
+
+  if (nw.length < 6) return (err.textContent = 'Password must be at least 6 characters');
+  if (nw !== cf)      return (err.textContent = 'Passwords do not match');
+
+  const m = STATE.teams.find(t => t.id === id);
+  if (!m) return (err.textContent = 'Member not found');
+
+  m.password = nw;
+  saveState();
+  err.textContent = '';
+  closeModal('member-reset-modal');
+  showToast(`✅ Password reset for ${m.name}`);
 }
 
 // ═══════════════════════════════════════════════════
