@@ -893,7 +893,15 @@ function renderTabsFor(sheetObj) {
   let html = `<div class="tab active" id="tab-overview" onclick="selectSheet('overview')">📊 Overview</div>`;
   if (sheetObj && sheetObj.tabs) {
     sheetObj.tabs.forEach(tab => {
-      html += `<div class="tab" id="tab-${tab}" onclick="selectTab('${tab}',this,null)">${tab}</div>`;
+      const isHidden = sheetObj._tabDetails?.find(d => d.name === tab)?.isHidden;
+      const isLocked = sheetObj._tabErrors?.[tab] === 'locked';
+      const isEmpty  = sheetObj._tabErrors?.[tab] === 'empty';
+      let icon = '';
+      let title = tab;
+      if (isLocked)      { icon = ' 🔒'; title = tab + ' (view-locked — no access)'; }
+      else if (isHidden) { icon = ' 👁'; title = tab + ' (hidden tab)'; }
+      else if (isEmpty)  { icon = ' ○';  title = tab + ' (no data)'; }
+      html += `<div class="tab" id="tab-${tab}" onclick="selectTab('${tab}',this,null)" title="${title}" style="${isLocked ? 'opacity:0.5;cursor:not-allowed' : ''}">${tab}${icon}</div>`;
     });
   }
   bar.innerHTML = html;
@@ -1163,7 +1171,7 @@ async function fetchAllTabs(sh) {
   }
 
   try {
-    // Step 1 — Get list of all tab names for this sheet
+    // Step 1 — Get list of all tab names (including hidden tabs)
     const listUrl = `${API_CONFIG.url}?action=getTabList&token=${encodeURIComponent(API_CONFIG.token)}`
       + `&sheetId=${encodeURIComponent(sh.sheetId)}`;
     const listRes  = await fetch(listUrl);
@@ -1171,18 +1179,22 @@ async function fetchAllTabs(sh) {
 
     if (!listJson.success) throw new Error(listJson.error || 'Could not get tab list');
 
-    const tabNames = listJson.tabs; // array of tab name strings
+    const tabNames   = listJson.tabs;       // ["Tab1","Tab2",...]
+    const tabDetails = listJson.tabDetails || []; // [{name, gid, isHidden}, ...]
     if (!tabNames || !tabNames.length) throw new Error('No tabs found in this sheet');
 
-    // Update tab list in state immediately so sidebar shows count
-    sh.tabs = tabNames;
-    sh.data = sh.data || {};
+    // Store hidden info for rendering
+    sh._tabDetails = tabDetails;
+    sh.tabs  = tabNames;
+    sh.data  = sh.data || {};
+    sh._tabErrors = {};  // track which tabs failed to load
     saveState();
     renderSidebar();
     renderTabsFor(sh);
 
     // Step 2 — Fetch data for each tab sequentially
     let loadedCount = 0;
+    let lockedCount = 0;
     for (const tabName of tabNames) {
       try {
         el.innerHTML = `<div class="empty-state"><div class="icon">⏳</div>
@@ -1201,17 +1213,21 @@ async function fetchAllTabs(sh) {
 
         if (dataJson.success && dataJson.data && dataJson.data.length) {
           sh.data[tabName] = dataJson.data;
+        } else if (!dataJson.success && dataJson.error && dataJson.error.includes('view-protected')) {
+          // Tab is view-locked — Apps Script deployer doesn't have access
+          sh.data[tabName]       = [];
+          sh._tabErrors[tabName] = 'locked';
+          lockedCount++;
         } else {
-          // Empty tab — store empty array so it still appears in tab list
           sh.data[tabName] = [];
-          console.warn(`Tab "${tabName}" returned no data:`, dataJson.error || 'empty');
+          if (dataJson.error) sh._tabErrors[tabName] = 'empty';
         }
         loadedCount++;
         renderTabsFor(sh);
         saveState();
       } catch(tabErr) {
-        console.warn(`Failed to load tab "${tabName}":`, tabErr.message);
-        sh.data[tabName] = [];
+        sh.data[tabName]       = [];
+        sh._tabErrors[tabName] = 'error';
         loadedCount++;
       }
     }
@@ -1221,7 +1237,12 @@ async function fetchAllTabs(sh) {
     renderTabsFor(sh);
     renderSidebar();
     selectTab(firstTabWithData, null, sh);
-    showToast(`✅ ${loadedCount} tab(s) loaded from "${sh.name}"`);
+
+    if (lockedCount > 0) {
+      showToast(`⚠️ ${loadedCount - lockedCount} tabs loaded, ${lockedCount} tab(s) are view-locked`, 'error');
+    } else {
+      showToast(`✅ ${loadedCount} tab(s) loaded from "${sh.name}"`);
+    }
 
   } catch(err) {
     el.innerHTML = `<div class="empty-state">
