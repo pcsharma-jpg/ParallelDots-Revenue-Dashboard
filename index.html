@@ -370,12 +370,12 @@
     </div>
     <button class="co-btn" id="split-btn" onclick="toggleSplitView()" title="Split View — see both companies side by side" style="display:none">⊟ Split View</button>
     <div class="divider-v"></div>
-    <div class="user-pill" onclick="openModal('team-modal')">
+    <div class="user-pill" id="user-pill-btn" onclick="openModal('team-modal')">
       <div class="avatar" id="user-avatar">A</div>
       <span class="user-name" id="user-display">Admin</span>
       <span class="badge-admin" id="user-badge">SUPER</span>
     </div>
-    <button class="col-select-btn" onclick="openModal('admin-modal')">⚙ Admin</button>
+    <button class="col-select-btn" id="topbar-admin-btn" onclick="openModal('admin-modal')">⚙ Admin</button>
     <button class="col-select-btn" onclick="openModal('reset-pass-modal')" title="Reset Password" style="border-color:var(--yellow);color:var(--yellow)">🔑 Reset</button>
     <button class="col-select-btn" onclick="doLogout()" title="Logout" style="border-color:var(--red);color:var(--red)">⏻ Logout</button>
   </div>
@@ -396,10 +396,10 @@
       <div id="sheet-nav-list"></div>
     </div>
     <div class="sidebar-bottom">
-      <div class="sidebar-action" onclick="openModal('link-modal')">
+      <div class="sidebar-action" id="sidebar-link-sheet" onclick="openModal('link-modal')">
         <span>➕</span> Link Google Sheet
       </div>
-      <div class="sidebar-action" onclick="openModal('team-modal')">
+      <div class="sidebar-action" id="sidebar-manage-team" onclick="openModal('team-modal')">
         <span>👥</span> Manage Team
       </div>
     </div>
@@ -571,7 +571,7 @@
       Use <strong>Export</strong> to download a settings file, then share it with your team member to <strong>Import</strong>.
     </div>
     <div style="display:flex;gap:8px;flex-wrap:wrap">
-      <button class="btn btn-ghost" onclick="exportSettings()" style="font-size:12px">⬇ Export Settings</button>
+      <button class="btn btn-ghost" id="export-settings-btn" onclick="exportSettings()" style="font-size:12px">⬇ Export Settings</button>
       <button class="btn btn-ghost" onclick="document.getElementById('import-settings-file').click()" style="font-size:12px">⬆ Import Settings</button>
       <input type="file" id="import-settings-file" accept=".json" style="display:none" onchange="importSettings(event)">
     </div>
@@ -588,6 +588,7 @@
   <div class="modal" style="width:560px">
     <div class="modal-title"><span class="icon">👥</span> Team Access Management</div>
 
+    <div id="team-add-section">
     <div class="section-title">Add New Member</div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
       <div class="form-group" style="margin:0">
@@ -615,6 +616,7 @@
       </div>
     </div>
     <button class="btn btn-primary" style="margin-top:12px" onclick="addMember()">Add Member</button>
+    </div>
 
     <div class="section-title" style="margin-top:20px">Current Team (<span id="team-count">0</span>)</div>
     <div class="team-list" id="team-list-container"></div>
@@ -698,8 +700,37 @@
   </div>
 </div>
 
-<!-- Reset Password Modal -->
-<div class="overlay" id="reset-pass-modal">
+<!-- Edit Member Modal -->
+<div class="overlay" id="edit-member-modal">
+  <div class="modal" style="width:420px">
+    <div class="modal-title"><span class="icon">✏️</span> Edit Member Access</div>
+    <input type="hidden" id="em-member-id">
+    <div style="font-size:13px;color:var(--text2);margin-bottom:16px">
+      Member: <strong id="em-member-name" style="color:var(--text)">—</strong><br>
+      Email: <span id="em-member-email" style="color:var(--text3)">—</span>
+    </div>
+    <div class="form-group">
+      <label>Role</label>
+      <select id="em-role">
+        <option>Viewer</option>
+        <option>Editor</option>
+        <option>Manager</option>
+        <option>Admin</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label>Sheet Access <span style="color:var(--text3);font-weight:400">(Ctrl+click for multiple)</span></label>
+      <select id="em-sheet-access" multiple style="height:90px">
+        <option value="all">All Sheets</option>
+      </select>
+    </div>
+    <div class="error-msg" id="em-err"></div>
+    <div class="btn-row">
+      <button class="btn btn-ghost" onclick="closeModal('edit-member-modal')">Cancel</button>
+      <button class="btn btn-primary" onclick="saveEditMember()">Save Changes</button>
+    </div>
+  </div>
+</div>
   <div class="modal" style="width:420px">
     <div class="modal-title"><span class="icon">🔑</span> Reset Password</div>
     <div class="form-group">
@@ -912,11 +943,10 @@ function doLogin() {
   }
 
   // ── 2. Team Member ──
-  // Match email case-insensitively
   const member = STATE.teams.find(t => (t.email || '').toLowerCase() === email);
 
   if (!member) {
-    err.textContent = 'No account found with this email.';
+    err.textContent = 'No account found with this email. Contact your Admin.';
     return;
   }
 
@@ -946,9 +976,22 @@ function doLogin() {
 function loginSuccess() {
   document.getElementById('login-screen').style.display = 'none';
   const u = STATE.currentUser;
-  document.getElementById('user-display').textContent = u.name;
-  document.getElementById('user-avatar').textContent = u.name[0].toUpperCase();
-  document.getElementById('user-badge').textContent = u.role === 'super' ? 'SUPER' : u.role.toUpperCase();
+  document.getElementById('user-display').textContent  = u.name;
+  document.getElementById('user-avatar').textContent   = u.name[0].toUpperCase();
+  document.getElementById('user-badge').textContent    = u.role === 'super' ? 'SUPER' : u.role.toUpperCase();
+
+  const isSuper = u.role === 'super';
+
+  // Super admin only elements
+  document.getElementById('topbar-admin-btn').style.display    = isSuper ? '' : 'none';
+  document.getElementById('sidebar-link-sheet').style.display  = isSuper ? '' : 'none';
+  document.getElementById('sidebar-manage-team').style.display = isSuper ? '' : 'none';
+
+  // User pill — super: opens team mgmt | member: opens reset password
+  document.getElementById('user-pill-btn').onclick = isSuper
+    ? () => openModal('team-modal')
+    : () => openModal('reset-pass-modal');
+
   renderSidebar();
   renderCompanyButtons();
   renderOverview();
@@ -956,11 +999,16 @@ function loginSuccess() {
 
 function doLogout() {
   STATE.currentUser = null;
+  // Reset UI to default (admin view) so next login works fresh
+  document.getElementById('topbar-admin-btn').style.display    = '';
+  document.getElementById('sidebar-link-sheet').style.display  = '';
+  document.getElementById('sidebar-manage-team').style.display = '';
+  document.getElementById('user-pill-btn').onclick = () => openModal('team-modal');
   // Clear login inputs
-  document.getElementById('login-email').value = '';
-  document.getElementById('login-pass').value = '';
+  document.getElementById('login-email').value    = '';
+  document.getElementById('login-pass').value     = '';
   document.getElementById('login-err').textContent = '';
-  // Show login screen
+  document.getElementById('login-err').style.color = '';
   document.getElementById('login-screen').style.display = 'flex';
   showToast('Logged out successfully');
 }
@@ -2298,31 +2346,44 @@ function renderTeamModal() {
   const container = document.getElementById('team-list-container');
   document.getElementById('team-count').textContent = STATE.teams.length;
   const isSuper = STATE.currentUser?.role === 'super';
+
+  // Hide "Add New Member" section for non-super users
+  const addSection = document.getElementById('team-add-section');
+  if (addSection) addSection.style.display = isSuper ? '' : 'none';
+
+  if (!STATE.teams.length) {
+    container.innerHTML = `<div style="color:var(--text3);font-size:13px">No team members yet.</div>`;
+    return;
+  }
+
   container.innerHTML = STATE.teams.map(m => `
     <div class="team-row">
-      <div class="avatar">${m.name[0]}</div>
+      <div class="avatar">${m.name[0].toUpperCase()}</div>
       <div class="team-info">
         <div class="team-name">${m.name}</div>
         <div class="team-role">${m.email}</div>
       </div>
       <div class="team-access">
         <span class="access-tag">${m.role}</span>
-        <span class="access-tag">${
-          m.sheetAccess === 'all'
-            ? 'All Sheets'
-            : String(m.sheetAccess).split(',').map(id =>
-                STATE.sheets.find(s => s.id === id.trim())?.name || id.trim()
-              ).join(', ')
+        <span class="access-tag" style="max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${
+          m.sheetAccess === 'all' ? 'All Sheets'
+          : String(m.sheetAccess).split(',').map(id => STATE.sheets.find(s=>s.id===id.trim())?.name || id.trim()).join(', ')
+        }">${
+          m.sheetAccess === 'all' ? 'All Sheets'
+          : String(m.sheetAccess).split(',').map(id => STATE.sheets.find(s=>s.id===id.trim())?.name || id.trim()).join(', ')
         }</span>
       </div>
       ${isSuper ? `
+        <button class="btn btn-xs" onclick="openEditMemberModal('${m.id}')"
+          style="background:var(--surface3);border:1px solid var(--border);color:var(--accent);font-size:11px"
+          title="Edit role & access">✏️</button>
         <button class="btn btn-xs" onclick="openMemberResetModal('${m.id}')"
           style="background:var(--surface3);border:1px solid var(--border);color:var(--yellow);font-size:11px"
-          title="Reset password for ${m.name}">🔑</button>
-        <button class="btn btn-danger btn-xs" onclick="removeMember('${m.id}')">✕</button>
+          title="Reset password">🔑</button>
+        <button class="btn btn-danger btn-xs" onclick="removeMember('${m.id}')" title="Remove member">✕</button>
       ` : ''}
     </div>
-  `).join('') || `<div style="color:var(--text3);font-size:13px">No team members yet.</div>`;
+  `).join('');
 }
 
 function addMember() {
@@ -2350,10 +2411,60 @@ function addMember() {
 }
 
 function removeMember(id) {
-  STATE.teams = STATE.teams.filter(m => m.id !== id);
+  // If currently logged-in member is being removed — force logout
+  const m = STATE.teams.find(t => t.id === id);
+  STATE.teams = STATE.teams.filter(t => t.id !== id);
   saveState();
   renderTeamModal();
   showToast('Member removed');
+  // If removed member is currently logged in on this browser — logout
+  if (m && STATE.currentUser?.email === m.email) {
+    setTimeout(() => doLogout(), 1000);
+  }
+}
+
+function openEditMemberModal(memberId) {
+  const m = STATE.teams.find(t => t.id === memberId);
+  if (!m) return;
+
+  document.getElementById('em-member-id').value          = memberId;
+  document.getElementById('em-member-name').textContent  = m.name;
+  document.getElementById('em-member-email').textContent = m.email;
+  document.getElementById('em-err').textContent          = '';
+
+  // Set role
+  const roleEl = document.getElementById('em-role');
+  Array.from(roleEl.options).forEach(o => { o.selected = o.value === m.role; });
+
+  // Populate sheet access options
+  const sheetSel = document.getElementById('em-sheet-access');
+  let opts = '<option value="all">All Sheets</option>';
+  STATE.sheets.forEach(sh => { opts += `<option value="${sh.id}">${sh.name}</option>`; });
+  sheetSel.innerHTML = opts;
+
+  // Pre-select current access
+  const currentIds = m.sheetAccess === 'all' ? ['all'] : String(m.sheetAccess).split(',').map(s => s.trim());
+  Array.from(sheetSel.options).forEach(o => { o.selected = currentIds.includes(o.value); });
+
+  openModal('edit-member-modal');
+}
+
+function saveEditMember() {
+  const id       = document.getElementById('em-member-id').value;
+  const role     = document.getElementById('em-role').value;
+  const sheetSel = document.getElementById('em-sheet-access');
+  const selected = Array.from(sheetSel.selectedOptions).map(o => o.value);
+  const sheetAccess = (!selected.length || selected.includes('all')) ? 'all' : selected.join(',');
+
+  const m = STATE.teams.find(t => t.id === id);
+  if (!m) return;
+
+  m.role        = role;
+  m.sheetAccess = sheetAccess;
+  saveState();
+  closeModal('edit-member-modal');
+  renderTeamModal();
+  showToast(`✅ ${m.name}'s access updated`);
 }
 
 function openMemberResetModal(memberId) {
