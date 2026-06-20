@@ -565,6 +565,18 @@
     <div class="section-title" style="margin-top:24px">Linked Sheets Manager</div>
     <div id="admin-sheets-list"></div>
 
+    <div class="section-title" style="margin-top:24px">Sync Settings to Team</div>
+    <div style="font-size:12px;color:var(--text2);margin-bottom:10px;line-height:1.6">
+      Since each member opens the dashboard on their own browser, passwords and settings are stored locally.
+      Use <strong>Export</strong> to download a settings file, then share it with your team member to <strong>Import</strong>.
+    </div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+      <button class="btn btn-ghost" onclick="exportSettings()" style="font-size:12px">⬇ Export Settings</button>
+      <button class="btn btn-ghost" onclick="document.getElementById('import-settings-file').click()" style="font-size:12px">⬆ Import Settings</button>
+      <input type="file" id="import-settings-file" accept=".json" style="display:none" onchange="importSettings(event)">
+    </div>
+    <div class="error-msg" id="sync-msg" style="margin-top:8px"></div>
+
     <div class="btn-row" style="margin-top:12px">
       <button class="btn btn-ghost" onclick="closeModal('admin-modal')">Close</button>
     </div>
@@ -639,25 +651,49 @@
   <div class="modal" style="width:420px">
     <div class="modal-title"><span class="icon">🔑</span> Reset Member Password</div>
     <div style="padding:10px 14px;background:rgba(245,158,11,.1);border:1px solid var(--yellow);border-radius:8px;margin-bottom:16px;font-size:13px;color:var(--yellow)">
-      ⚠️ Super Admin action — you are resetting a member's password without requiring their current password.
+      ⚠️ Super Admin action — reset password for this member.
     </div>
     <div style="font-size:13px;color:var(--text2);margin-bottom:16px">
       Member: <strong id="mr-member-name" style="color:var(--text)">—</strong><br>
       Email: <span id="mr-member-email" style="color:var(--text3)">—</span>
     </div>
     <input type="hidden" id="mr-member-id">
-    <div class="form-group">
-      <label>New Password</label>
-      <input type="password" id="mr-new-pass" placeholder="Min 6 characters">
+
+    <!-- Step 1: Set new password -->
+    <div id="mr-step1">
+      <div class="form-group">
+        <label>New Password</label>
+        <input type="password" id="mr-new-pass" placeholder="Min 6 characters">
+      </div>
+      <div class="form-group">
+        <label>Confirm New Password</label>
+        <input type="password" id="mr-conf-pass" placeholder="Re-enter new password">
+      </div>
+      <div class="error-msg" id="mr-err"></div>
+      <div class="btn-row">
+        <button class="btn btn-ghost" onclick="closeModal('member-reset-modal')">Cancel</button>
+        <button class="btn btn-primary" onclick="adminResetMemberPassword()">Reset & Generate Link</button>
+      </div>
     </div>
-    <div class="form-group">
-      <label>Confirm New Password</label>
-      <input type="password" id="mr-conf-pass" placeholder="Re-enter new password">
-    </div>
-    <div class="error-msg" id="mr-err"></div>
-    <div class="btn-row">
-      <button class="btn btn-ghost" onclick="closeModal('member-reset-modal')">Cancel</button>
-      <button class="btn btn-primary" onclick="adminResetMemberPassword()">Reset Password</button>
+
+    <!-- Step 2: Copy link to share with member -->
+    <div id="mr-step2" style="display:none">
+      <div style="padding:12px;background:rgba(34,197,94,.1);border:1px solid var(--green);border-radius:8px;margin-bottom:14px;font-size:13px;color:var(--green)">
+        ✅ Password reset done! Share this link with the member — when they open it, their password will be set automatically.
+      </div>
+      <div style="font-size:12px;color:var(--text2);margin-bottom:6px;font-weight:600">Share this link:</div>
+      <div style="display:flex;gap:6px;align-items:center">
+        <input type="text" id="mr-share-link" readonly
+          style="flex:1;font-size:11px;background:var(--surface3);border:1px solid var(--border);border-radius:6px;padding:7px 10px;color:var(--accent);cursor:pointer"
+          onclick="this.select()">
+        <button class="btn btn-primary" onclick="copyResetLink()" style="font-size:12px;white-space:nowrap">📋 Copy</button>
+      </div>
+      <div style="font-size:11px;color:var(--text3);margin-top:8px">
+        Send via WhatsApp / Email. Link works only once — member opens it and password is set.
+      </div>
+      <div class="btn-row" style="margin-top:14px">
+        <button class="btn btn-ghost" onclick="closeModal('member-reset-modal')">Close</button>
+      </div>
     </div>
   </div>
 </div>
@@ -760,6 +796,92 @@ function saveState() {
     companies:  STATE.companies,
     apiConfig:  { url: API_CONFIG.url, token: API_CONFIG.token }
   }));
+}
+
+// ═══════════════════════════════════════════════════
+//  EXPORT / IMPORT SETTINGS
+//  Super Admin exports → shares JSON file → Member imports
+//  This syncs: teams (with passwords), sheets, API config
+// ═══════════════════════════════════════════════════
+function exportSettings() {
+  const data = {
+    _pd_version: 3,
+    _exported_at: new Date().toISOString(),
+    _exported_by: STATE.currentUser?.name || 'Admin',
+    auth:      STATE.auth,
+    teams:     STATE.teams,
+    sheets:    STATE.sheets.map(sh => ({
+      id: sh.id, name: sh.name, icon: sh.icon,
+      sheetId: sh.sheetId, gid: sh.gid, tabs: sh.tabs || []
+      // data NOT exported — too large, member will fetch fresh
+    })),
+    apiConfig: { url: API_CONFIG.url, token: API_CONFIG.token }
+  };
+
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+  const a    = document.createElement('a');
+  a.href     = URL.createObjectURL(blob);
+  a.download = `paralleldots_settings_${new Date().toISOString().slice(0,10)}.json`;
+  a.click();
+  showToast('✅ Settings exported — share this file with your team members');
+}
+
+function importSettings(event) {
+  const file = event.target.files[0];
+  const msg  = document.getElementById('sync-msg');
+  if (!file) return;
+
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    try {
+      const data = JSON.parse(e.target.result);
+
+      // Validate it's a ParallelDots settings file
+      if (!data._pd_version || !data.teams) {
+        msg.style.color = 'var(--red)';
+        msg.textContent = '❌ Invalid file — please use a ParallelDots settings export file';
+        return;
+      }
+
+      // Apply imported settings
+      if (data.auth)      STATE.auth      = data.auth;
+      if (data.teams)     STATE.teams     = data.teams;
+      if (data.apiConfig) {
+        API_CONFIG.url   = data.apiConfig.url   || '';
+        API_CONFIG.token = data.apiConfig.token || '';
+      }
+      if (data.sheets) {
+        // Merge sheets — keep existing cached data, update metadata
+        data.sheets.forEach(importedSh => {
+          const existing = STATE.sheets.find(s => s.id === importedSh.id);
+          if (existing) {
+            // Update metadata but keep cached data
+            existing.name    = importedSh.name;
+            existing.icon    = importedSh.icon;
+            existing.sheetId = importedSh.sheetId;
+            existing.tabs    = importedSh.tabs || existing.tabs || [];
+          } else {
+            STATE.sheets.push({ ...importedSh, data: {} });
+          }
+        });
+      }
+
+      saveState();
+      renderSidebar();
+
+      msg.style.color = 'var(--green)';
+      msg.textContent = `✅ Settings imported successfully (exported by ${data._exported_by} on ${data._exported_at?.slice(0,10)})`;
+      showToast('✅ Settings synced! Passwords and sheets updated.');
+
+      // Clear file input for next use
+      event.target.value = '';
+
+    } catch(err) {
+      msg.style.color = 'var(--red)';
+      msg.textContent = '❌ Could not read file: ' + err.message;
+    }
+  };
+  reader.readAsText(file);
 }
 
 // ═══════════════════════════════════════════════════
@@ -2165,12 +2287,14 @@ function removeMember(id) {
 function openMemberResetModal(memberId) {
   const m = STATE.teams.find(t => t.id === memberId);
   if (!m) return;
-  document.getElementById('mr-member-id').value     = memberId;
+  document.getElementById('mr-member-id').value          = memberId;
   document.getElementById('mr-member-name').textContent  = m.name;
   document.getElementById('mr-member-email').textContent = m.email;
-  document.getElementById('mr-new-pass').value  = '';
-  document.getElementById('mr-conf-pass').value = '';
-  document.getElementById('mr-err').textContent = '';
+  document.getElementById('mr-new-pass').value   = '';
+  document.getElementById('mr-conf-pass').value  = '';
+  document.getElementById('mr-err').textContent  = '';
+  document.getElementById('mr-step1').style.display = '';
+  document.getElementById('mr-step2').style.display = 'none';
   openModal('member-reset-modal');
 }
 
@@ -2186,11 +2310,63 @@ function adminResetMemberPassword() {
   const m = STATE.teams.find(t => t.id === id);
   if (!m) return (err.textContent = 'Member not found');
 
+  // Save new password
   m.password = nw;
   saveState();
-  err.textContent = '';
-  closeModal('member-reset-modal');
-  showToast(`✅ Password reset for ${m.name}`);
+
+  // Generate a one-time token: base64(email:newpassword)
+  const token = btoa(unescape(encodeURIComponent(m.email + ':' + nw)));
+  const baseUrl = window.location.href.split('?')[0].split('#')[0];
+  const shareLink = baseUrl + '?pd_token=' + token;
+
+  // Show step 2 with copy link
+  document.getElementById('mr-step1').style.display = 'none';
+  document.getElementById('mr-step2').style.display = '';
+  document.getElementById('mr-share-link').value = shareLink;
+}
+
+function copyResetLink() {
+  const input = document.getElementById('mr-share-link');
+  input.select();
+  navigator.clipboard.writeText(input.value).then(() => {
+    showToast('✅ Link copied! Send it to the member via WhatsApp or Email');
+  }).catch(() => {
+    document.execCommand('copy');
+    showToast('✅ Link copied!');
+  });
+}
+
+// ── On page load — check if URL has a pd_token (member clicking reset link) ──
+function checkUrlToken() {
+  const params = new URLSearchParams(window.location.search);
+  const token  = params.get('pd_token');
+  if (!token) return;
+
+  try {
+    const decoded = decodeURIComponent(escape(atob(token)));
+    const colonIdx = decoded.indexOf(':');
+    if (colonIdx === -1) return;
+
+    const email    = decoded.slice(0, colonIdx);
+    const password = decoded.slice(colonIdx + 1);
+
+    // Find the member and set their password
+    const member = STATE.teams.find(t => t.email === email);
+    if (member) {
+      member.password = password;
+      saveState();
+      // Pre-fill login email
+      document.getElementById('login-email').value = email;
+      document.getElementById('login-err').style.color = 'var(--green)';
+      document.getElementById('login-err').textContent = '✅ Your password has been updated! Enter it below to sign in.';
+    }
+
+    // Clean the URL — remove token from address bar
+    window.history.replaceState({}, document.title, window.location.pathname);
+
+  } catch(e) {
+    console.warn('Invalid pd_token in URL');
+  }
 }
 
 // ═══════════════════════════════════════════════════
@@ -2223,6 +2399,7 @@ function refreshData() {
 //  INIT
 // ═══════════════════════════════════════════════════
 loadState();
+checkUrlToken(); // handle password reset link from admin
 // Set filter-status-all active by default
 document.getElementById('filter-status-all').classList.add('active');
 </script>
