@@ -601,17 +601,22 @@
         <input type="text" id="new-member-email" placeholder="john@company.com">
       </div>
       <div class="form-group" style="margin:0">
-        <label>Role</label>
-        <select id="new-member-role">
-          <option>Viewer</option>
-          <option>Editor</option>
-          <option>Manager</option>
-          <option>Admin</option>
-        </select>
+        <label>Password <span style="color:var(--text3);font-weight:400">(leave blank = member123)</span></label>
+        <input type="password" id="new-member-pass" placeholder="Default: member123">
       </div>
       <div class="form-group" style="margin:0">
+        <label>Role</label>
+        <select id="new-member-role">
+          <option value="Viewer">Viewer</option>
+          <option value="Editor">Editor</option>
+          <option value="Manager">Manager</option>
+          <option value="Admin">Admin</option>
+          <option value="super">Super Admin</option>
+        </select>
+      </div>
+      <div class="form-group" style="margin:0;grid-column:1/-1">
         <label>Sheet Access <span style="color:var(--text3);font-weight:400">(Ctrl+click for multiple)</span></label>
-        <select id="new-member-sheet" multiple style="height:80px">
+        <select id="new-member-sheet" multiple style="height:72px">
           <option value="all" selected>All Sheets</option>
         </select>
       </div>
@@ -713,10 +718,11 @@
     <div class="form-group">
       <label>Role</label>
       <select id="em-role">
-        <option>Viewer</option>
-        <option>Editor</option>
-        <option>Manager</option>
-        <option>Admin</option>
+        <option value="Viewer">Viewer</option>
+        <option value="Editor">Editor</option>
+        <option value="Manager">Manager</option>
+        <option value="Admin">Admin</option>
+        <option value="super">Super Admin</option>
       </select>
     </div>
     <div class="form-group">
@@ -980,15 +986,15 @@ function doLogin() {
     return;
   }
 
+  // If role is 'super' → give full super admin access (same as main admin)
   STATE.currentUser = {
     name:        member.name,
     email:       member.email,
-    role:        member.role,
+    role:        member.role,   // 'super' role = full admin access
     sheetAccess: member.sheetAccess
   };
   loginSuccess();
 
-  // Show banner only if still on default password
   if (!member.password) {
     setTimeout(() => {
       document.getElementById('fc-notice').style.display = 'flex';
@@ -2402,7 +2408,7 @@ function renderTeamModal() {
         <div class="team-role">${m.email}</div>
       </div>
       <div class="team-access">
-        <span class="access-tag">${m.role}</span>
+        <span class="access-tag" style="${m.role === 'super' ? 'background:linear-gradient(90deg,var(--accent),var(--accent2));color:#fff' : ''}">${m.role === 'super' ? '⭐ Super Admin' : m.role}</span>
         <span class="access-tag" style="max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${
           m.sheetAccess === 'all' ? 'All Sheets'
           : String(m.sheetAccess).split(',').map(id => STATE.sheets.find(s=>s.id===id.trim())?.name || id.trim()).join(', ')
@@ -2427,25 +2433,36 @@ function renderTeamModal() {
 function addMember() {
   const name  = document.getElementById('new-member-name').value.trim();
   const email = document.getElementById('new-member-email').value.trim();
+  const pass  = document.getElementById('new-member-pass').value.trim();
   const role  = document.getElementById('new-member-role').value;
 
-  // Read multi-select — get all selected values
-  const sheetSel    = document.getElementById('new-member-sheet');
+  // Read multi-select sheet access
+  const sheetSel     = document.getElementById('new-member-sheet');
   const selectedOpts = Array.from(sheetSel.selectedOptions).map(o => o.value);
-  // If 'all' is selected, or nothing selected → 'all'
-  const sheetAccess = (!selectedOpts.length || selectedOpts.includes('all'))
-    ? 'all'
-    : selectedOpts.join(',');
+  const sheetAccess  = (!selectedOpts.length || selectedOpts.includes('all')) ? 'all' : selectedOpts.join(',');
 
   if (!name || !email) return showToast('Name and email are required', 'error');
   if (STATE.teams.find(t => t.email === email)) return showToast('Member already exists', 'error');
 
-  STATE.teams.push({ id: 't' + Date.now(), name, email, role, sheetAccess });
+  const newMember = {
+    id: 't' + Date.now(),
+    name,
+    email,
+    role,
+    sheetAccess,
+    password: pass || ''   // empty = will use 'member123' default at login
+  };
+
+  STATE.teams.push(newMember);
   saveState();
   renderTeamModal();
   document.getElementById('new-member-name').value = '';
   document.getElementById('new-member-email').value = '';
-  showToast(`${name} added. Default pass: member123`);
+  document.getElementById('new-member-pass').value  = '';
+
+  const passInfo = pass ? `Password: "${pass}"` : 'Default password: member123';
+  const roleLabel = role === 'super' ? '⭐ Super Admin' : role;
+  showToast(`✅ ${name} added as ${roleLabel}. ${passInfo}`);
 }
 
 function removeMember(id) {
